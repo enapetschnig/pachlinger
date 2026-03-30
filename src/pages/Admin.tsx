@@ -604,6 +604,11 @@ export default function Admin() {
     e.preventDefault();
     if (!selectedEmployee) return;
 
+    // Check if WhatsApp was just activated (was off, now on)
+    const wasWhatsAppOff = !selectedEmployee.whatsapp_aktiv;
+    const isWhatsAppOn = formData.whatsapp_aktiv === true;
+    const whatsAppJustActivated = wasWhatsAppOff && isWhatsAppOn;
+
     try {
       const { error } = await supabase
         .from("employees")
@@ -613,6 +618,29 @@ export default function Admin() {
       if (error) throw error;
 
       toast({ title: "Erfolg", description: "Änderungen gespeichert" });
+
+      // Send WhatsApp onboarding if just activated
+      if (whatsAppJustActivated && formData.telefon) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          await supabase.functions.invoke("whatsapp-onboarding", {
+            body: { employee_id: selectedEmployee.id },
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+          });
+          toast({
+            title: "WhatsApp Onboarding gesendet",
+            description: `${formData.vorname} hat die Willkommensnachricht erhalten`,
+          });
+        } catch (onbErr: any) {
+          console.error("Onboarding send failed:", onbErr);
+          toast({
+            variant: "destructive",
+            title: "WhatsApp Onboarding fehlgeschlagen",
+            description: onbErr.message,
+          });
+        }
+      }
+
       fetchEmployees();
       setSelectedEmployee(null);
     } catch (error: any) {
@@ -1061,8 +1089,15 @@ export default function Admin() {
                       </div>
                       <div className="flex items-center justify-between rounded-lg border p-3">
                         <div>
-                          <Label className="font-medium">WhatsApp freigeschalten</Label>
-                          <p className="text-xs text-muted-foreground">Mitarbeiter kann den WhatsApp-Bot nutzen</p>
+                          <Label className="font-medium flex items-center gap-2">
+                            <MessageCircle className="h-4 w-4 text-green-600" />
+                            WhatsApp freigeschalten
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            {formData.whatsapp_aktiv
+                              ? "Mitarbeiter kann den WhatsApp-Bot nutzen"
+                              : "Beim Aktivieren wird automatisch eine Willkommensnachricht gesendet"}
+                          </p>
                         </div>
                         <Switch
                           checked={formData.whatsapp_aktiv || false}
