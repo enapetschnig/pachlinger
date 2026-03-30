@@ -1,0 +1,2 @@
+ALTER TABLE public.time_entries DROP CONSTRAINT time_entries_location_type_check;
+ALTER TABLE public.time_entries ADD CONSTRAINT time_entries_location_type_check CHECK (location_type = ANY (ARRAY['baustelle'::text, 'werkstatt'::text, 'regie'::text]));

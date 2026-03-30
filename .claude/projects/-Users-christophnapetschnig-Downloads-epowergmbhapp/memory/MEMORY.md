@@ -1,0 +1,1 @@
+- [eBauer Setup](project_ebauer_setup.md) — App rebranded to eBauer GmbH, WhatsApp WAPI + Claude AI, Supabase xyhgckqxowqnzjtoblfs

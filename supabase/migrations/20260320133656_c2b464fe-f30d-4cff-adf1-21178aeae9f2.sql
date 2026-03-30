@@ -1,0 +1,1 @@
+ALTER TABLE public.invitation_logs ADD COLUMN email text;
