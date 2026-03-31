@@ -139,9 +139,11 @@ export default function ScheduleBoard() {
 
     // Sync to Google Calendar (fire and forget)
     if (assignmentId) {
-      supabase.functions.invoke("sync-assignment-to-calendar", {
-        body: { action: "sync", assignment_id: assignmentId },
-      }).catch((e: any) => console.error("Calendar sync failed:", e));
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-assignment-to-calendar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", assignment_id: assignmentId }),
+      }).catch((e) => console.error("Calendar sync failed:", e));
     }
   };
 
@@ -150,9 +152,11 @@ export default function ScheduleBoard() {
     if (!existing) return;
 
     // Delete from Google Calendar first (fire and forget)
-    supabase.functions.invoke("sync-assignment-to-calendar", {
-      body: { action: "delete", assignment_id: existing.id },
-    }).catch((e: any) => console.error("Calendar delete failed:", e));
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-assignment-to-calendar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", assignment_id: existing.id }),
+    }).catch((e) => console.error("Calendar delete failed:", e));
 
     const { error } = await supabase
       .from("worker_assignments")
