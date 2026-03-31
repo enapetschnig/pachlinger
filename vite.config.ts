@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'eBauer GmbH',
-        short_name: 'eBauer',
+        name: 'ePower GmbH',
+        short_name: 'ePower',
         description: 'Baustellendokumentation und Zeiterfassung',
         theme_color: '#1e40af',
         background_color: '#ffffff',

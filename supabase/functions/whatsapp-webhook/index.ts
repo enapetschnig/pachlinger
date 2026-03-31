@@ -569,7 +569,7 @@ function buildSystemPrompt(
   dailyTarget: number,
   missingDays: string[]
 ): string {
-  return `Du bist der *eBauer Assistent* – der WhatsApp-Helfer der eBauer GmbH (Elektrofirma).
+  return `Du bist der *ePower Assistent* – der WhatsApp-Helfer der ePower GmbH (Elektrofirma).
 Sei freundlich, locker, hilfreich – aber kurz und knapp (WhatsApp!).
 WhatsApp-Formatierung: *fett*, _kursiv_. Emojis sparsam.
 

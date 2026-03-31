@@ -69,11 +69,11 @@ Deno.serve(async (req) => {
     }
 
     // Generate registration link
-    const appUrl = 'https://ebauer-gmbh.app';
+    const appUrl = 'https://epower-gmbh.app';
     const registrationLink = `${appUrl}/auth`;
 
     // Compose SMS message
-    const smsText = `Willkommen bei eBauer GmbH! Bitte registriere dich in unserer Mitarbeiter-App:\n${registrationLink}`;
+    const smsText = `Willkommen bei ePower GmbH! Bitte registriere dich in unserer Mitarbeiter-App:\n${registrationLink}`;
 
     console.log('Sending SMS via Twilio...');
 

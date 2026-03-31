@@ -119,7 +119,7 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
     doc.setFontSize(24);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 64, 175);
-    doc.text("eBAUER GMBH", margin, yPos);
+    doc.text("ePOWER GMBH", margin, yPos);
     yPos += 8;
   }
 
@@ -360,7 +360,7 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
   const footerY = doc.internal.pageSize.getHeight() - 15;
-  doc.text(`Erstellt am: ${new Date().toLocaleDateString("de-AT")} | eBauer GmbH`, margin, footerY);
+  doc.text(`Erstellt am: ${new Date().toLocaleDateString("de-AT")} | ePower GmbH`, margin, footerY);
 
   // Return as base64
   return doc.output("datauristring").split(",")[1];
@@ -384,7 +384,7 @@ function generateEmailHtml(data: ReportRequest & { technicians: string[] }): str
     </head>
     <body>
       <div class="container">
-        <div class="header">eBAUER GMBH</div>
+        <div class="header">ePOWER GMBH</div>
         <h2>Regiebericht</h2>
         
         <p>Sehr geehrte Damen und Herren,</p>
@@ -401,7 +401,7 @@ function generateEmailHtml(data: ReportRequest & { technicians: string[] }): str
         <p>Der vollständige Bericht mit allen Details und der Kundenunterschrift befindet sich im angehängten PDF-Dokument.</p>
         
         <p>Mit freundlichen Grüßen,<br>
-        eBauer GmbH</p>
+        ePower GmbH</p>
       </div>
     </body>
     </html>
@@ -454,7 +454,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("key", "disturbance_report_email")
       .maybeSingle();
 
-    const officeEmail = setting?.value || "office@ebauer-gmbh.at";
+    const officeEmail = setting?.value || "office@epower-gmbh.at";
     console.log("Using office email:", officeEmail);
 
     // Prepare recipients - office email for all reports
@@ -473,7 +473,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log("Sending email with PDF attachment to:", recipients);
 
     const emailResponse = await resend.emails.send({
-      from: "eBauer GmbH <noreply@chrisnapetschnig.at>",
+      from: "ePower GmbH <noreply@chrisnapetschnig.at>",
       to: recipients,
       subject: subject,
       html: emailHtml,

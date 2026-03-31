@@ -18,7 +18,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 12%;
 
-    /* eBauer GmbH Blau #1e40af als Hauptfarbe */
+    /* ePower GmbH Blau #1e40af als Hauptfarbe */
     --primary: 222 82% 40%;
     --primary-foreground: 0 0% 100%;
 
@@ -43,9 +43,9 @@ All colors MUST be HSL.
     --radius: 0.75rem;
 
     /* Custom design tokens */
-    --ebauer-blue: 222 82% 40%;
-    --ebauer-dark: 222 85% 30%;
-    --ebauer-light: 222 70% 60%;
+    --epower-blue: 222 82% 40%;
+    --epower-dark: 222 85% 30%;
+    --epower-light: 222 70% 60%;
     --neutral-gray: 0 0% 50%;
     
     /* Shadows */

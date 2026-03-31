@@ -34,7 +34,7 @@ function formatPhone(phone: string): string {
 }
 
 function buildOnboardingMessage(vorname: string, projectList: string): string {
-  return `Hey ${vorname}! 👋 Ich bin der *eBauer Assistent*.
+  return `Hey ${vorname}! 👋 Ich bin der *ePower Assistent*.
 
 Ab jetzt kannst du deine Stunden einfach hier per WhatsApp schreiben – kein Zettel, keine App nötig.
 

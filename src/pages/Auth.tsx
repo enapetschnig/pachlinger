@@ -117,8 +117,8 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="/ebauer-logo.png" alt="eBauer GmbH" className="h-16 mx-auto mb-4" />
-          <CardTitle>eBauer GmbH</CardTitle>
+          <img src="/epower-logo.png" alt="ePower GmbH" className="h-16 mx-auto mb-4" />
+          <CardTitle>ePower GmbH</CardTitle>
           <CardDescription>Baustellendokumentation</CardDescription>
         </CardHeader>
         <CardContent>

@@ -38,8 +38,8 @@ export function PageHeader({ title, showBackButton = true, backPath, showHomeBut
               </Button>
             )}
             <img 
-              src="/ebauer-logo.png"
-              alt="eBauer GmbH" 
+              src="/epower-logo.png"
+              alt="ePower GmbH" 
               className="h-8 w-8 sm:h-10 sm:w-10 cursor-pointer hover:opacity-80 transition-opacity object-contain shrink-0" 
               onClick={() => navigate("/")}
             />

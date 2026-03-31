@@ -719,7 +719,7 @@ export default function HoursReport() {
 
   const buildEmployeeWorksheetData = (includeOvertime: boolean) => {
     const worksheetData: (string | number)[][] = [
-      ["eBauer GmbH", "", "", "", "", "", "", "", "", "", "", ""],
+      ["ePower GmbH", "", "", "", "", "", "", "", "", "", "", ""],
       ["", "", "", "", "", "", "", "", "", "", "", ""],
       ["", "", "", "", "", "", "", "", "", "", "", ""],
       ["", "", "", "", "", "", "", "", "", "", "", ""],
