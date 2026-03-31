@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Trash2 } from "lucide-react";
+import { Trash2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -28,7 +30,7 @@ interface Props {
   days?: Date[];
   assignment: Assignment | null;
   projects: Project[];
-  onAssign: (userId: string, date: Date, projectId: string, notizen?: string) => void;
+  onAssign: (userId: string, date: Date, projectId: string, notizen?: string, startTime?: string, endTime?: string) => void;
   onRemove: (userId: string, date: Date) => void;
 }
 
@@ -45,13 +47,20 @@ export function AssignmentPopover({
 }: Props) {
   const [selectedProject, setSelectedProject] = useState(assignment?.project_id || "");
   const [notizen, setNotizen] = useState(assignment?.notizen || "");
+  const [startTime, setStartTime] = useState(assignment?.start_time || "07:00");
+  const [endTime, setEndTime] = useState(assignment?.end_time || "16:00");
 
   const isRangeMode = days && days.length > 1;
+
+  // Check if selected date is Friday
+  const isFriday = date ? date.getDay() === 5 : false;
 
   useEffect(() => {
     setSelectedProject(assignment?.project_id || "");
     setNotizen(assignment?.notizen || "");
-  }, [assignment, open]);
+    setStartTime(assignment?.start_time || "07:00");
+    setEndTime(assignment?.end_time || (isFriday ? "12:30" : "16:00"));
+  }, [assignment, open, isFriday]);
 
   if (!profile || !date) return null;
 
@@ -59,12 +68,22 @@ export function AssignmentPopover({
     if (!selectedProject) return;
     if (isRangeMode) {
       for (const d of days) {
-        onAssign(profile.id, d, selectedProject, notizen || undefined);
+        const fri = d.getDay() === 5;
+        onAssign(profile.id, d, selectedProject, notizen || undefined, startTime, fri ? "12:30" : endTime);
       }
     } else {
-      onAssign(profile.id, date, selectedProject, notizen || undefined);
+      onAssign(profile.id, date, selectedProject, notizen || undefined, startTime, endTime);
     }
     onOpenChange(false);
+  };
+
+  // Calculate hours from times
+  const calcHours = () => {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    const pause = mins > 360 ? 30 : 0; // 30min pause if > 6h
+    return Math.max(0, (mins - pause) / 60).toFixed(1);
   };
 
   const dateLabel = isRangeMode
@@ -95,11 +114,35 @@ export function AssignmentPopover({
             </SelectContent>
           </Select>
 
+          {/* Time range */}
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Arbeitszeit
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="h-9 text-sm"
+              />
+              <span className="text-muted-foreground text-sm">–</span>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{calcHours()}h (abzgl. Pause)</p>
+          </div>
+
           <Textarea
             placeholder="Notiz für den Mitarbeiter (optional)..."
             value={notizen}
             onChange={(e) => setNotizen(e.target.value)}
-            rows={3}
+            rows={2}
             className="text-sm resize-none"
           />
 

@@ -196,8 +196,8 @@ async function gatherContext(userId: string) {
         .eq("user_id", userId).eq("datum", today)
         .order("created_at", { ascending: false }),
       supabase.from("worker_assignments")
-        .select("project_id, projects(name)")
-        .eq("worker_id", userId).eq("date", today),
+        .select("project_id, projects(name), start_time, end_time, notizen")
+        .eq("user_id", userId).eq("datum", today),
       // Entire week for the weekly brain
       supabase.from("time_entries")
         .select("datum, stunden, taetigkeit, projects(name)")
@@ -264,7 +264,9 @@ async function gatherContext(userId: string) {
   if (assignments.length > 0) {
     ctx += `\nPLANTAFEL-EINTEILUNG HEUTE:\n`;
     assignments.forEach((a: any) => {
-      ctx += `  • ${a.projects?.name || "?"}\n`;
+      const timeStr = a.start_time && a.end_time ? ` (${a.start_time}–${a.end_time})` : "";
+      const noteStr = a.notizen ? ` – ${a.notizen}` : "";
+      ctx += `  • ${a.projects?.name || "?"}${timeStr}${noteStr}\n`;
     });
   }
 

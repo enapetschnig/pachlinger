@@ -7,6 +7,8 @@ export type Assignment = {
   project_id: string;
   datum: string;
   notizen: string | null;
+  start_time: string | null;
+  end_time: string | null;
 };
 
 export type Resource = {

@@ -26,6 +26,7 @@ import MaterialList from "./pages/MaterialList";
 import Disturbances from "./pages/Disturbances";
 import DisturbanceDetail from "./pages/DisturbanceDetail";
 import ScheduleBoard from "./pages/ScheduleBoard";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 
@@ -69,6 +70,7 @@ function AppContent() {
         <Route path="/disturbances" element={<Disturbances />} />
         <Route path="/disturbances/:id" element={<DisturbanceDetail />} />
         <Route path="/schedule" element={<ScheduleBoard />} />
+        <Route path="/calendar" element={<Calendar />} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>

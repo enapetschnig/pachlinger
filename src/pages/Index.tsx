@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, FolderKanban, Users, BarChart3, LogOut, FileText, Camera, ArrowRight, Info, User as UserIcon, Zap, CalendarDays, MessageCircle, MapPin, StickyNote } from "lucide-react";
+import { Clock, FolderKanban, Users, BarChart3, LogOut, FileText, Camera, ArrowRight, Info, User as UserIcon, Zap, CalendarDays, MessageCircle, MapPin, StickyNote, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { WhatsAppStatus } from "@/components/WhatsAppStatus";
@@ -98,7 +98,7 @@ export default function Index() {
 
     const { data } = await supabase
       .from("worker_assignments")
-      .select("id, datum, notizen, project_id, projects(name)")
+      .select("id, datum, notizen, start_time, end_time, project_id, projects(name)")
       .eq("user_id", userId)
       .gte("datum", todayStr)
       .lte("datum", dayAfterStr)
@@ -454,6 +454,25 @@ export default function Index() {
             </CardContent>
           </Card>
 
+          {/* Kalender */}
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
+            onClick={() => navigate("/calendar")}
+          >
+            <CardHeader className="space-y-2 pb-3">
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <CalendarIcon className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-lg sm:text-xl">Kalender</CardTitle>
+              <CardDescription className="text-sm">
+                Einteilungen & Termine im Überblick
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" size="sm" variant="outline">Kalender öffnen</Button>
+            </CardContent>
+          </Card>
+
           {/* Admin: Mitarbeiter */}
           {isAdmin && (
             <Card
@@ -519,7 +538,14 @@ export default function Index() {
                             <div key={a.id} className="flex items-start gap-2">
                               <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm">{a.projects?.name || "Unbekanntes Projekt"}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-sm">{a.projects?.name || "Unbekanntes Projekt"}</p>
+                                  {(a.start_time || a.end_time) && (
+                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                      {a.start_time?.slice(0, 5) || "?"} – {a.end_time?.slice(0, 5) || "?"}
+                                    </span>
+                                  )}
+                                </div>
                                 {a.notizen && (
                                   <div className="flex items-start gap-1 mt-0.5">
                                     <StickyNote className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
