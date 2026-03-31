@@ -1566,6 +1566,92 @@ export default function Admin() {
 
         {/* ===== DATENSICHERUNG ===== */}
         <BackupSectionComponent />
+
+      {/* Add Employee Dialog */}
+      <Dialog open={showAddEmployeeDialog} onOpenChange={setShowAddEmployeeDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Neuen Mitarbeiter hinzufügen</DialogTitle>
+            <DialogDescription>
+              Mitarbeiter anlegen und optional direkt für WhatsApp freischalten
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="new-vorname">Vorname *</Label>
+                <Input
+                  id="new-vorname"
+                  value={newEmployee.vorname}
+                  onChange={(e) => setNewEmployee({ ...newEmployee, vorname: e.target.value })}
+                  placeholder="Max"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-nachname">Nachname *</Label>
+                <Input
+                  id="new-nachname"
+                  value={newEmployee.nachname}
+                  onChange={(e) => setNewEmployee({ ...newEmployee, nachname: e.target.value })}
+                  placeholder="Mustermann"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="new-telefon">Telefonnummer</Label>
+              <Input
+                id="new-telefon"
+                type="tel"
+                value={newEmployee.telefon}
+                onChange={(e) => setNewEmployee({ ...newEmployee, telefon: e.target.value })}
+                placeholder="+43 664 1234567"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-email">E-Mail</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={newEmployee.email}
+                onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                placeholder="max@beispiel.at"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-position">Position</Label>
+              <Input
+                id="new-position"
+                value={newEmployee.position}
+                onChange={(e) => setNewEmployee({ ...newEmployee, position: e.target.value })}
+                placeholder="z.B. Elektriker, Vorarbeiter"
+              />
+            </div>
+            {newEmployee.telefon && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label className="font-medium flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-green-600" />
+                    WhatsApp sofort freischalten
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Willkommensnachricht wird automatisch gesendet
+                  </p>
+                </div>
+                <Switch
+                  checked={newEmployee.whatsapp_aktiv}
+                  onCheckedChange={(c) => setNewEmployee({ ...newEmployee, whatsapp_aktiv: c })}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddEmployeeDialog(false)}>Abbrechen</Button>
+            <Button onClick={handleAddEmployee} disabled={!newEmployee.vorname || !newEmployee.nachname}>
+              Mitarbeiter anlegen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2080,92 +2166,6 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
               )}
             </div>
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Employee Dialog */}
-      <Dialog open={showAddEmployeeDialog} onOpenChange={setShowAddEmployeeDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Neuen Mitarbeiter hinzufügen</DialogTitle>
-            <DialogDescription>
-              Mitarbeiter anlegen und optional direkt für WhatsApp freischalten
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="new-vorname">Vorname *</Label>
-                <Input
-                  id="new-vorname"
-                  value={newEmployee.vorname}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, vorname: e.target.value })}
-                  placeholder="Max"
-                />
-              </div>
-              <div>
-                <Label htmlFor="new-nachname">Nachname *</Label>
-                <Input
-                  id="new-nachname"
-                  value={newEmployee.nachname}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, nachname: e.target.value })}
-                  placeholder="Mustermann"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="new-telefon">Telefonnummer</Label>
-              <Input
-                id="new-telefon"
-                type="tel"
-                value={newEmployee.telefon}
-                onChange={(e) => setNewEmployee({ ...newEmployee, telefon: e.target.value })}
-                placeholder="+43 664 1234567"
-              />
-            </div>
-            <div>
-              <Label htmlFor="new-email">E-Mail</Label>
-              <Input
-                id="new-email"
-                type="email"
-                value={newEmployee.email}
-                onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
-                placeholder="max@beispiel.at"
-              />
-            </div>
-            <div>
-              <Label htmlFor="new-position">Position</Label>
-              <Input
-                id="new-position"
-                value={newEmployee.position}
-                onChange={(e) => setNewEmployee({ ...newEmployee, position: e.target.value })}
-                placeholder="z.B. Elektriker, Vorarbeiter"
-              />
-            </div>
-            {newEmployee.telefon && (
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <Label className="font-medium flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-green-600" />
-                    WhatsApp sofort freischalten
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Willkommensnachricht wird automatisch gesendet
-                  </p>
-                </div>
-                <Switch
-                  checked={newEmployee.whatsapp_aktiv}
-                  onCheckedChange={(c) => setNewEmployee({ ...newEmployee, whatsapp_aktiv: c })}
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddEmployeeDialog(false)}>Abbrechen</Button>
-            <Button onClick={handleAddEmployee} disabled={!newEmployee.vorname || !newEmployee.nachname}>
-              Mitarbeiter anlegen
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
