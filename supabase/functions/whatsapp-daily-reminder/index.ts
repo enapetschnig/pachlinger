@@ -89,7 +89,9 @@ async function generateReminderMessage(
   // Morning message
   let msg = `Guten Morgen ${name}! ☀️\n\n`;
   if (scheduleInfo) {
-    msg += `📋 *Deine Einteilung heute:* ${scheduleInfo}\n\n`;
+    msg += `📋 *Deine Einteilung heute:*\n${scheduleInfo}\n\n`;
+  } else {
+    msg += `Heute keine Einteilung in der Plantafel.\n\n`;
   }
   msg += `Tagessoll: *${dailyTarget}h* (${dayName})\n\n`;
   msg += `*Projekte:*\n${projectList}\n\n`;
@@ -205,14 +207,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
         let scheduleInfo = "";
         const { data: assignments } = await supabase
           .from("worker_assignments")
-          .select("project_id, projects(name)")
-          .eq("worker_id", emp.user_id)
-          .eq("date", today);
+          .select("project_id, projects(name), start_time, end_time, notizen")
+          .eq("user_id", emp.user_id)
+          .eq("datum", today);
 
         if (assignments?.length) {
           scheduleInfo = assignments
-            .map((a: any) => a.projects?.name || "?")
-            .join(", ");
+            .map((a: any) => {
+              let line = a.projects?.name || "?";
+              if (a.start_time && a.end_time) line += ` (${a.start_time}–${a.end_time})`;
+              if (a.notizen) line += ` – ${a.notizen}`;
+              return line;
+            })
+            .join("\n");
         }
 
         const message = await generateReminderMessage(

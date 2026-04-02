@@ -115,12 +115,15 @@ export function WhatsAppAdminSettings() {
   const handleTriggerReminder = async (type: "morning" | "evening") => {
     setSendingReminder(type);
     try {
-      const { data, error } = await supabase.functions.invoke("whatsapp-daily-reminder", {
-        body: { type },
+      const res = await fetch("https://xyhgckqxowqnzjtoblfs.supabase.co/functions/v1/whatsapp-daily-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
       });
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Status ${res.status}`);
       toast({
-        title: type === "morning" ? "Morgennachrichten gesendet" : "Abendesinnerungen gesendet",
+        title: type === "morning" ? "Morgennachrichten gesendet" : "Abenderinnerungen gesendet",
         description: `${data?.sentCount || 0} Mitarbeiter benachrichtigt`,
       });
     } catch (err: any) {

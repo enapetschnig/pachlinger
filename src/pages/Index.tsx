@@ -315,7 +315,77 @@ export default function Index() {
           </p>
         </div>
 
-        {/* Main Actions Grid - Neue Reihenfolge */}
+        {/* Meine Einteilung - ganz oben */}
+        {assignments.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg sm:text-xl font-bold mb-3 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Meine Einteilung
+            </h2>
+            <div className="space-y-2">
+              {(() => {
+                const today = new Date().toISOString().split("T")[0];
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+                const grouped: Record<string, typeof assignments> = {};
+                assignments.forEach((a) => {
+                  if (!grouped[a.datum]) grouped[a.datum] = [];
+                  grouped[a.datum].push(a);
+                });
+
+                return Object.entries(grouped).map(([datum, entries]) => {
+                  const isToday = datum === today;
+                  const isTomorrow = datum === tomorrowStr;
+                  const label = isToday ? "Heute" : isTomorrow ? "Morgen" : new Date(datum).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" });
+
+                  return (
+                    <Card key={datum} className={isToday ? "border-primary/50 bg-primary/5" : ""}>
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`text-sm font-bold ${isToday ? "text-primary" : "text-muted-foreground"}`}>
+                            {label}
+                          </span>
+                          {isToday && (
+                            <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                              Heute
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {entries.map((a: any) => (
+                            <div key={a.id} className="flex items-start gap-2">
+                              <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-sm">{a.projects?.name || "Unbekanntes Projekt"}</p>
+                                  {(a.start_time || a.end_time) && (
+                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                      {a.start_time?.slice(0, 5) || "?"} – {a.end_time?.slice(0, 5) || "?"}
+                                    </span>
+                                  )}
+                                </div>
+                                {a.notizen && (
+                                  <div className="flex items-start gap-1 mt-0.5">
+                                    <StickyNote className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                                    <p className="text-xs text-muted-foreground">{a.notizen}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Main Actions Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           {/* 1. Zeiterfassung */}
           <Card 
@@ -494,76 +564,6 @@ export default function Index() {
             </Card>
           )}
         </div>
-
-        {/* Plantafel Einteilung */}
-        {assignments.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-xl sm:text-2xl font-bold mb-4 flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              Meine Einteilung
-            </h2>
-            <div className="space-y-2">
-              {(() => {
-                const today = new Date().toISOString().split("T")[0];
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const tomorrowStr = tomorrow.toISOString().split("T")[0];
-
-                const grouped: Record<string, typeof assignments> = {};
-                assignments.forEach((a) => {
-                  if (!grouped[a.datum]) grouped[a.datum] = [];
-                  grouped[a.datum].push(a);
-                });
-
-                return Object.entries(grouped).map(([datum, entries]) => {
-                  const isToday = datum === today;
-                  const isTomorrow = datum === tomorrowStr;
-                  const label = isToday ? "Heute" : isTomorrow ? "Morgen" : new Date(datum).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" });
-
-                  return (
-                    <Card key={datum} className={isToday ? "border-primary/50 bg-primary/5" : ""}>
-                      <CardContent className="p-3 sm:p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`text-sm font-bold ${isToday ? "text-primary" : "text-muted-foreground"}`}>
-                            {label}
-                          </span>
-                          {isToday && (
-                            <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                              Heute
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          {entries.map((a: any) => (
-                            <div key={a.id} className="flex items-start gap-2">
-                              <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-sm">{a.projects?.name || "Unbekanntes Projekt"}</p>
-                                  {(a.start_time || a.end_time) && (
-                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                      {a.start_time?.slice(0, 5) || "?"} – {a.end_time?.slice(0, 5) || "?"}
-                                    </span>
-                                  )}
-                                </div>
-                                {a.notizen && (
-                                  <div className="flex items-start gap-1 mt-0.5">
-                                    <StickyNote className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
-                                    <p className="text-xs text-muted-foreground">{a.notizen}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        )}
 
         {/* Recent Time Entries */}
         {recentEntries.length > 0 && (
