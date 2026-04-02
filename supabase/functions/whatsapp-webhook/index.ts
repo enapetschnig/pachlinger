@@ -880,7 +880,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
               .getPublicUrl(tempPath);
             tempUrl = urlData.publicUrl;
 
-            // Save pending photo reference
+            // Clear ALL old pending photos for this user first
+            await supabase.from("whatsapp_messages")
+              .delete()
+              .eq("phone", phone)
+              .eq("message_type", "pending_photo");
+
+            // Save ONLY this photo as pending
             await supabase.from("whatsapp_messages").insert({
               phone, direction: "incoming",
               message_body: tempUrl,
@@ -921,21 +927,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .maybeSingle();
 
         if (pendingPhoto) {
-          // There's a photo waiting → download it from temp storage
+          // There's a CURRENT photo waiting → download it from temp storage
           userMessage = `[Foto wartet auf Zuordnung] ${userMessage}`;
           try {
             const tempRes = await fetch(pendingPhoto.message_body);
             if (tempRes.ok) {
               cachedImageBuffer = await tempRes.arrayBuffer();
-              console.log("Loaded pending photo from temp storage:", cachedImageBuffer.byteLength);
+              console.log("Loaded pending photo:", cachedImageBuffer.byteLength, "bytes");
             }
           } catch (e) {
             console.error("Failed to load pending photo:", e);
           }
-          // Mark as processed
+          // Delete ALL pending photos for this user (clean slate)
           await supabase.from("whatsapp_messages")
-            .update({ processed: true })
-            .eq("id", pendingPhoto.id);
+            .delete()
+            .eq("phone", phone)
+            .eq("message_type", "pending_photo");
         }
       }
 
