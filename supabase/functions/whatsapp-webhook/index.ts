@@ -862,24 +862,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
           continue;
         }
       } else if (msg.type === "image" || msg.mediaUrl) {
-        userMessage = msg.caption
-          ? `[Foto gesendet] ${msg.caption}`
-          : "[Foto gesendet ohne Beschreibung]";
-
-        // Download image IMMEDIATELY
+        // Download image IMMEDIATELY and store in temp storage
         const mediaRef = msg.mediaUrl || msg.messageId;
+        let tempUrl = "";
         if (mediaRef) {
           try {
             cachedImageBuffer = await downloadMedia(mediaRef, msg.messageId);
-            console.log(`Image cached: ${cachedImageBuffer.byteLength} bytes`);
+            console.log(`Image downloaded: ${cachedImageBuffer.byteLength} bytes`);
+
+            // Store immediately in temp storage so it persists across messages
+            const tempPath = `whatsapp-temp/${phone}/${Date.now()}.jpg`;
+            await supabase.storage
+              .from("project-photos")
+              .upload(tempPath, cachedImageBuffer, { contentType: "image/jpeg", upsert: true });
+            const { data: urlData } = supabase.storage
+              .from("project-photos")
+              .getPublicUrl(tempPath);
+            tempUrl = urlData.publicUrl;
+
+            // Save pending photo reference
+            await supabase.from("whatsapp_messages").insert({
+              phone, direction: "incoming",
+              message_body: tempUrl,
+              message_type: "pending_photo",
+              employee_id: emp.id, user_id: userId, processed: false,
+            });
           } catch (e: any) {
             console.error("Image download failed:", e.message);
-            userMessage = msg.caption
-              ? `[Foto gesendet aber Download fehlgeschlagen] ${msg.caption}`
-              : "[Foto gesendet aber konnte nicht heruntergeladen werden]";
           }
+        }
+
+        if (msg.caption) {
+          // Caption = project name → process now with the photo
+          userMessage = `[Foto gesendet] ${msg.caption}`;
         } else {
-          userMessage = "[Foto gesendet aber keine Medien-Referenz gefunden]";
+          // No caption → just acknowledge, wait for project name
+          await saveMsg(phone, "incoming", "[Foto empfangen]", emp.id, userId);
+          await sendWhatsApp(phone, "📸 Foto erhalten! Auf welches Projekt soll ich es hochladen?");
+          await saveMsg(phone, "outgoing", "📸 Foto erhalten! Auf welches Projekt soll ich es hochladen?", emp.id, userId);
+          continue; // Don't process through GPT
         }
       } else {
         userMessage = msg.body || "";
@@ -887,11 +908,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       if (!userMessage.trim()) continue;
 
+      // Check if there's a pending photo for this user (photo sent earlier, now project name comes)
+      if (!cachedImageBuffer) {
+        const { data: pendingPhoto } = await supabase
+          .from("whatsapp_messages")
+          .select("id, message_body")
+          .eq("phone", phone)
+          .eq("message_type", "pending_photo")
+          .eq("processed", false)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (pendingPhoto) {
+          // There's a photo waiting → download it from temp storage
+          userMessage = `[Foto wartet auf Zuordnung] ${userMessage}`;
+          try {
+            const tempRes = await fetch(pendingPhoto.message_body);
+            if (tempRes.ok) {
+              cachedImageBuffer = await tempRes.arrayBuffer();
+              console.log("Loaded pending photo from temp storage:", cachedImageBuffer.byteLength);
+            }
+          } catch (e) {
+            console.error("Failed to load pending photo:", e);
+          }
+          // Mark as processed
+          await supabase.from("whatsapp_messages")
+            .update({ processed: true })
+            .eq("id", pendingPhoto.id);
+        }
+      }
+
       await saveMsg(phone, "incoming", userMessage, emp.id, userId);
 
       const [ctxData, history] = await Promise.all([
         gatherContext(userId),
-        loadHistory(phone, 12),
+        loadHistory(phone, 6),
       ]);
 
       const systemPrompt = buildSystemPrompt(
@@ -899,8 +951,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         ctxData.dailyTarget, ctxData.missingDays
       );
 
-      // Pass cached image buffer reference instead of URL
-      const mediaRef = cachedImageBuffer ? `__cached__` : undefined;
+      const mediaRef = cachedImageBuffer ? "__cached__" : undefined;
 
       const reply = await askGPT(
         systemPrompt, history, userMessage, userId, name, mediaRef, cachedImageBuffer
