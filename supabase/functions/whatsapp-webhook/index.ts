@@ -50,47 +50,62 @@ async function sendWhatsApp(to: string, message: string) {
   return result;
 }
 
-async function downloadMedia(mediaRef: string): Promise<ArrayBuffer> {
-  console.log("Downloading media, ref:", mediaRef);
+async function downloadMedia(mediaRef: string, messageId?: string): Promise<ArrayBuffer> {
+  console.log("Downloading media, ref:", mediaRef, "msgId:", messageId);
 
-  // Method 1: If it's a full URL, download directly
+  // Method 1: Direct URL (Wasabi S3 links from WAPI)
   if (mediaRef.startsWith("http")) {
-    const res = await fetch(mediaRef, {
+    // WAPI S3 URLs don't need auth
+    const res = await fetch(mediaRef);
+    if (res.ok) {
+      console.log("Downloaded via direct URL, size:", res.headers.get("content-length"));
+      return res.arrayBuffer();
+    }
+    // Try with auth
+    const res2 = await fetch(mediaRef, {
       headers: { Authorization: `Bearer ${WAPI_TOKEN}` },
     });
-    if (res.ok) return res.arrayBuffer();
-
-    // Try without auth
-    const res2 = await fetch(mediaRef);
     if (res2.ok) return res2.arrayBuffer();
-
-    throw new Error(`Direct URL download failed: ${res.status}`);
+    console.error("Direct URL failed:", res.status);
   }
 
-  // Method 2: WAPI media endpoint - GET /media/{id}
-  // The id can be the message ID or media ID
-  const mediaRes = await fetch(`${WAPI_BASE}/media/${mediaRef}`, {
-    headers: { Authorization: `Bearer ${WAPI_TOKEN}`, Accept: "*/*" },
-  });
+  // Method 2: Fetch message details from WAPI to get the image link
+  const msgId = messageId || mediaRef;
+  if (msgId) {
+    console.log("Fetching message details for:", msgId);
+    const msgRes = await fetch(`${WAPI_BASE}/messages/${msgId}`, {
+      headers: { Authorization: `Bearer ${WAPI_TOKEN}` },
+    });
+    if (msgRes.ok) {
+      const msgData = await msgRes.json();
+      const imgLink = msgData.image?.link || msgData.media?.link;
+      console.log("Message image link:", imgLink);
+      if (imgLink) {
+        const dlRes = await fetch(imgLink);
+        if (dlRes.ok) return dlRes.arrayBuffer();
+      }
+    }
+  }
 
+  // Method 3: WAPI /media endpoint
+  const mediaRes = await fetch(`${WAPI_BASE}/media/${mediaRef}`, {
+    headers: { Authorization: `Bearer ${WAPI_TOKEN}` },
+  });
   if (mediaRes.ok) {
-    const contentType = mediaRes.headers.get("content-type") || "";
-    // If it returns JSON, it might contain a link
-    if (contentType.includes("json")) {
+    const ct = mediaRes.headers.get("content-type") || "";
+    if (ct.includes("json")) {
       const json = await mediaRes.json();
-      console.log("Media API returned JSON:", JSON.stringify(json).slice(0, 300));
-      const link = json.link || json.url || json.data?.link;
+      const link = json.link || json.url;
       if (link) {
         const dlRes = await fetch(link);
         if (dlRes.ok) return dlRes.arrayBuffer();
       }
-      throw new Error("Media API returned JSON without downloadable link");
+    } else {
+      return mediaRes.arrayBuffer();
     }
-    // Otherwise it's the actual binary
-    return mediaRes.arrayBuffer();
   }
 
-  throw new Error(`Media download failed for ${mediaRef}: ${mediaRes.status}`);
+  throw new Error(`All download methods failed for ${mediaRef}`);
 }
 
 // ─── Speech-to-Text via OpenAI Whisper ───────────────────
@@ -855,7 +870,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const mediaRef = msg.mediaUrl || msg.messageId;
         if (mediaRef) {
           try {
-            cachedImageBuffer = await downloadMedia(mediaRef);
+            cachedImageBuffer = await downloadMedia(mediaRef, msg.messageId);
             console.log(`Image cached: ${cachedImageBuffer.byteLength} bytes`);
           } catch (e: any) {
             console.error("Image download failed:", e.message);
