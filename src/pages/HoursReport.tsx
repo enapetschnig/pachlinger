@@ -695,7 +695,7 @@ export default function HoursReport() {
         date,
         dayNumber: day,
         dayOfWeek,
-        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6 || dayOfWeek === 5,
         isFriday: dayOfWeek === 5,
       });
     }
@@ -871,14 +871,13 @@ export default function HoursReport() {
           ]);
         } else {
           const normalHours = getNormalWorkingHours(dayDate);
-          const isFriday = dayDate.getDay() === 5;
           worksheetData.push([
             displayDay,
             normalHours > 0 ? "07:00" : "",
-            normalHours > 0 ? (isFriday ? "11:30" : "12:00") : "",
-            normalHours > 0 && !isFriday ? "12:00 - 12:30" : "",
-            normalHours > 0 && !isFriday ? "12:30" : "",
-            normalHours > 0 ? (isFriday ? "11:30" : "16:00") : "",
+            normalHours > 0 ? "12:00" : "",
+            normalHours > 0 ? "12:00 - 12:30" : "",
+            normalHours > 0 ? "12:30" : "",
+            normalHours > 0 ? "17:08" : "",
             normalHours.toFixed(2),
             ortText,
             projektName,

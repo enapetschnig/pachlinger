@@ -194,8 +194,9 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const calculateHours = (): number => {
     const [startH, startM] = formData.startTime.split(":").map(Number);
     const [endH, endM] = formData.endTime.split(":").map(Number);
-    let totalMinutes = (endH * 60 + endM) - (startH * 60 + startM) - formData.pauseMinutes;
-    if (hasLunchBreak) totalMinutes -= LUNCH_BREAK_MINUTES;
+    // Lunch break replaces the old pauseMinutes when checked
+    const breakMinutes = hasLunchBreak ? LUNCH_BREAK_MINUTES : formData.pauseMinutes;
+    const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM) - breakMinutes;
     return Math.max(0, totalMinutes / 60);
   };
 

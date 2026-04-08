@@ -18,6 +18,8 @@ interface TimeEntryData {
   pause_start?: string | null;
   pause_end?: string | null;
   location_type: string;
+  has_breakfast_break?: boolean;
+  has_lunch_break?: boolean;
   notizen?: string | null;
   week_type?: string | null;
 }
@@ -154,6 +156,8 @@ Deno.serve(async (req: Request) => {
           pause_start: mainEntry.pause_start || null,
           pause_end: mainEntry.pause_end || null,
           location_type: mainEntry.location_type,
+          has_breakfast_break: mainEntry.has_breakfast_break || false,
+          has_lunch_break: mainEntry.has_lunch_break || false,
           notizen: mainEntry.notizen || null,
           week_type: mainEntry.week_type || null,
         })
@@ -200,6 +204,8 @@ Deno.serve(async (req: Request) => {
           pause_start: teamEntry.pause_start || null,
           pause_end: teamEntry.pause_end || null,
           location_type: teamEntry.location_type,
+          has_breakfast_break: teamEntry.has_breakfast_break || false,
+          has_lunch_break: teamEntry.has_lunch_break || false,
           notizen: teamEntry.notizen || null,
           week_type: teamEntry.week_type || null,
         })

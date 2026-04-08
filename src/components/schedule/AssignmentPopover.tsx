@@ -52,15 +52,12 @@ export function AssignmentPopover({
 
   const isRangeMode = days && days.length > 1;
 
-  // Check if selected date is Friday
-  const isFriday = date ? date.getDay() === 5 : false;
-
   useEffect(() => {
     setSelectedProject(assignment?.project_id || "");
     setNotizen(assignment?.notizen || "");
     setStartTime(assignment?.start_time || "07:00");
-    setEndTime(assignment?.end_time || (isFriday ? "12:30" : "16:00"));
-  }, [assignment, open, isFriday]);
+    setEndTime(assignment?.end_time || "17:08");
+  }, [assignment, open]);
 
   if (!profile || !date) return null;
 
@@ -68,8 +65,10 @@ export function AssignmentPopover({
     if (!selectedProject) return;
     if (isRangeMode) {
       for (const d of days) {
-        const fri = d.getDay() === 5;
-        onAssign(profile.id, d, selectedProject, notizen || undefined, startTime, fri ? "12:30" : endTime);
+        // Freitag bis Sonntag überspringen (4-Tage-Woche MO-DO)
+        const dow = d.getDay();
+        if (dow === 0 || dow === 5 || dow === 6) continue;
+        onAssign(profile.id, d, selectedProject, notizen || undefined, startTime, endTime);
       }
     } else {
       onAssign(profile.id, date, selectedProject, notizen || undefined, startTime, endTime);
