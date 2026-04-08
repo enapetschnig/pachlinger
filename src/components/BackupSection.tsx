@@ -15,7 +15,7 @@ type BackupSection = "mitarbeiter" | "projekte" | "regieberichte" | "za_korrektu
 const sectionLabels: Record<BackupSection, string> = {
   mitarbeiter: "Mitarbeiter (Stammdaten, Stunden, Dokumente)",
   projekte: "Projekte (Stunden, Materialien, Pläne, Fotos)",
-  regieberichte: "Regieberichte (inkl. Fotos)",
+  regieberichte: "Arbeitsberichte (inkl. Fotos)",
   za_korrekturen: "ZA-Korrekturen",
 };
 
@@ -145,16 +145,16 @@ export default function BackupSectionComponent() {
       }
 
       if (sections.regieberichte) {
-        tick("Lade Regieberichte...");
+        tick("Lade Arbeitsberichte...");
         const { data: disturbances } = await supabase.from("disturbances").select("*").order("datum");
         if (disturbances?.length) {
           const enriched = disturbances.map(d => ({
             ...d,
             mitarbeiter: profileMap.get(d.user_id) || d.user_id,
           }));
-          zip.file(`${root}/regieberichte/regieberichte.xlsx`, createWorkbook("Regieberichte", enriched));
+          zip.file(`${root}/regieberichte/regieberichte.xlsx`, createWorkbook("Arbeitsberichte", enriched));
 
-          tick("Lade Regiebericht-Fotos...");
+          tick("Lade Arbeitsbericht-Fotos...");
           const { data: photos } = await supabase.from("disturbance_photos").select("*");
           if (photos) {
             for (const photo of photos) {

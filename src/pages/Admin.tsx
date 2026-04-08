@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, User as UserIcon, Send, Mail, Phone, MapPin, Shirt, FileText, Clock, Trash2, Settings, Save, Pencil, Calendar, MessageCircle } from "lucide-react";
+import { Shield, User as UserIcon, Send, Mail, Phone, MapPin, Shirt, FileText, Clock, Trash2, Settings, Save, Pencil, Calendar, History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { getNormalWorkingHours, isWorkingDay, DAILY_WORK_HOURS } from "@/lib/workingHours";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -20,7 +22,6 @@ import { format } from "date-fns";
 import EmployeeDocumentsManager from "@/components/EmployeeDocumentsManager";
 import BackupSectionComponent from "@/components/BackupSection";
 import { PageHeader } from "@/components/PageHeader";
-import { WhatsAppAdminSettings } from "@/components/WhatsAppAdminSettings";
 
 type Profile = {
   id: string;
@@ -69,7 +70,8 @@ interface Employee {
   schuhgroesse: string | null;
   notizen: string | null;
   land: string | null;
-  whatsapp_aktiv: boolean | null;
+  vacation_credit_month: number | null;
+  vacation_days_per_year: number | null;
 }
 
 export default function Admin() {
@@ -103,7 +105,7 @@ export default function Admin() {
   // Add employee dialog
   const [showAddEmployeeDialog, setShowAddEmployeeDialog] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
-    vorname: "", nachname: "", telefon: "", email: "", position: "", whatsapp_aktiv: true,
+    vorname: "", nachname: "", telefon: "", email: "", position: "",
   });
 
   // App settings states
@@ -288,7 +290,6 @@ export default function Admin() {
           telefon: newEmployee.telefon || null,
           email: newEmployee.email || null,
           position: newEmployee.position || null,
-          whatsapp_aktiv: newEmployee.whatsapp_aktiv && !!newEmployee.telefon,
         })
         .select()
         .single();
@@ -297,22 +298,8 @@ export default function Admin() {
 
       toast({ title: "Mitarbeiter angelegt", description: `${newEmployee.vorname} ${newEmployee.nachname}` });
 
-      // Send WhatsApp onboarding if activated and phone present
-      if (newEmployee.whatsapp_aktiv && newEmployee.telefon && emp) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          await supabase.functions.invoke("whatsapp-onboarding", {
-            body: { employee_id: emp.id },
-            headers: { Authorization: `Bearer ${session?.access_token}` },
-          });
-          toast({ title: "WhatsApp Onboarding gesendet", description: `Willkommensnachricht an ${newEmployee.vorname}` });
-        } catch (e: any) {
-          console.error("Onboarding failed:", e);
-        }
-      }
-
       setShowAddEmployeeDialog(false);
-      setNewEmployee({ vorname: "", nachname: "", telefon: "", email: "", position: "", whatsapp_aktiv: true });
+      setNewEmployee({ vorname: "", nachname: "", telefon: "", email: "", position: "" });
       fetchEmployees();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Fehler", description: err.message });
@@ -656,11 +643,6 @@ export default function Admin() {
     e.preventDefault();
     if (!selectedEmployee) return;
 
-    // Check if WhatsApp was just activated (was off, now on)
-    const wasWhatsAppOff = !selectedEmployee.whatsapp_aktiv;
-    const isWhatsAppOn = formData.whatsapp_aktiv === true;
-    const whatsAppJustActivated = wasWhatsAppOff && isWhatsAppOn;
-
     try {
       const { error } = await supabase
         .from("employees")
@@ -670,28 +652,6 @@ export default function Admin() {
       if (error) throw error;
 
       toast({ title: "Erfolg", description: "Änderungen gespeichert" });
-
-      // Send WhatsApp onboarding if just activated
-      if (whatsAppJustActivated && formData.telefon) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          await supabase.functions.invoke("whatsapp-onboarding", {
-            body: { employee_id: selectedEmployee.id },
-            headers: { Authorization: `Bearer ${session?.access_token}` },
-          });
-          toast({
-            title: "WhatsApp Onboarding gesendet",
-            description: `${formData.vorname} hat die Willkommensnachricht erhalten`,
-          });
-        } catch (onbErr: any) {
-          console.error("Onboarding send failed:", onbErr);
-          toast({
-            variant: "destructive",
-            title: "WhatsApp Onboarding fehlgeschlagen",
-            description: onbErr.message,
-          });
-        }
-      }
 
       fetchEmployees();
       setSelectedEmployee(null);
@@ -1040,15 +1000,6 @@ export default function Admin() {
           </Card>
         </section>
 
-        {/* ===== WHATSAPP EINSTELLUNGEN ===== */}
-        <section>
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-            <MessageCircle className="h-6 w-6 text-green-600" />
-            WhatsApp Einstellungen
-          </h2>
-          <WhatsAppAdminSettings />
-        </section>
-
       </main>
 
       {/* Employee Detail Dialog */}
@@ -1143,23 +1094,6 @@ export default function Admin() {
                           type="tel"
                           value={formData.telefon || ""}
                           onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg border p-3">
-                        <div>
-                          <Label className="font-medium flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-green-600" />
-                            WhatsApp freigeschalten
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            {formData.whatsapp_aktiv
-                              ? "Mitarbeiter kann den WhatsApp-Bot nutzen"
-                              : "Beim Aktivieren wird automatisch eine Willkommensnachricht gesendet"}
-                          </p>
-                        </div>
-                        <Switch
-                          checked={formData.whatsapp_aktiv || false}
-                          onCheckedChange={(c) => setFormData({ ...formData, whatsapp_aktiv: c })}
                         />
                       </div>
                       <div>
@@ -1284,6 +1218,48 @@ export default function Admin() {
                           value={formData.schuhgroesse || ""}
                           onChange={(e) => setFormData({ ...formData, schuhgroesse: e.target.value })}
                           placeholder="z.B. 42, 43, 44"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Urlaubseinstellungen</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Urlaubsgutschrift-Monat</Label>
+                        <Select
+                          value={formData.vacation_credit_month?.toString() || ""}
+                          onValueChange={(val) => setFormData({ ...formData, vacation_credit_month: val ? parseInt(val) : null })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Monat wählen..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Jänner</SelectItem>
+                            <SelectItem value="2">Februar</SelectItem>
+                            <SelectItem value="3">März</SelectItem>
+                            <SelectItem value="4">April</SelectItem>
+                            <SelectItem value="5">Mai</SelectItem>
+                            <SelectItem value="6">Juni</SelectItem>
+                            <SelectItem value="7">Juli</SelectItem>
+                            <SelectItem value="8">August</SelectItem>
+                            <SelectItem value="9">September</SelectItem>
+                            <SelectItem value="10">Oktober</SelectItem>
+                            <SelectItem value="11">November</SelectItem>
+                            <SelectItem value="12">Dezember</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Urlaubstage pro Jahr</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={formData.vacation_days_per_year ?? 25}
+                          onChange={(e) => setFormData({ ...formData, vacation_days_per_year: e.target.value ? parseInt(e.target.value) : null })}
                         />
                       </div>
                     </div>
@@ -1531,7 +1507,7 @@ export default function Admin() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="disturbance-email">Regiebericht E-Mail-Empfänger</Label>
+              <Label htmlFor="disturbance-email">Arbeitsbericht E-Mail-Empfänger</Label>
               <div className="flex gap-2">
                 <Input
                   id="disturbance-email"
@@ -1551,7 +1527,7 @@ export default function Admin() {
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground">
-                Diese E-Mail-Adresse erhält alle Regieberichte als Kopie.
+                Diese E-Mail-Adresse erhält alle Arbeitsberichte als Kopie.
               </p>
             </div>
           </CardContent>
@@ -1573,7 +1549,7 @@ export default function Admin() {
           <DialogHeader>
             <DialogTitle>Neuen Mitarbeiter hinzufügen</DialogTitle>
             <DialogDescription>
-              Mitarbeiter anlegen und optional direkt für WhatsApp freischalten
+              Mitarbeiter anlegen
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1626,23 +1602,6 @@ export default function Admin() {
                 placeholder="z.B. Elektriker, Vorarbeiter"
               />
             </div>
-            {newEmployee.telefon && (
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <Label className="font-medium flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-green-600" />
-                    WhatsApp sofort freischalten
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Willkommensnachricht wird automatisch gesendet
-                  </p>
-                </div>
-                <Switch
-                  checked={newEmployee.whatsapp_aktiv}
-                  onCheckedChange={(c) => setNewEmployee({ ...newEmployee, whatsapp_aktiv: c })}
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddEmployeeDialog(false)}>Abbrechen</Button>
@@ -1661,6 +1620,7 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
   const { toast } = useToast();
   const [zaData, setZaData] = useState<{ userId: string; name: string; accrued: number; taken: number; adjustments: number }[]>([]);
   const [loadingZA, setLoadingZA] = useState(true);
+  const [filterMonth, setFilterMonth] = useState("");
 
   // Dialog state
   const [editUserId, setEditUserId] = useState<string | null>(null);
@@ -1669,9 +1629,14 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
   const [savingAdjust, setSavingAdjust] = useState(false);
   const [adjustHistory, setAdjustHistory] = useState<{ id: string; hours: number; reason: string; created_at: string; admin_name: string }[]>([]);
 
+  // History dialog state
+  const [historyUserId, setHistoryUserId] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<{ zaHistory: { id: string; hours: number; reason: string; created_at: string; admin_name: string }[]; vacHistory: { id: string; days: number; reason: string; source: string; created_at: string; admin_name: string }[] }>({ zaHistory: [], vacHistory: [] });
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   useEffect(() => {
     fetchZAData();
-  }, [profiles]);
+  }, [profiles, filterMonth]);
 
   const fetchZAData = async () => {
     if (profiles.length === 0) return;
@@ -1679,9 +1644,20 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
 
     const activeProfiles = profiles.filter(p => p.is_active);
 
+    let entriesQuery = supabase.from("time_entries").select("user_id, datum, stunden, taetigkeit").order("datum");
+    let adjQuery = supabase.from("za_adjustments").select("user_id, hours, created_at");
+
+    if (filterMonth) {
+      const [year, month] = filterMonth.split("-");
+      const startDate = `${year}-${month}-01`;
+      const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split("T")[0];
+      entriesQuery = entriesQuery.gte("datum", startDate).lte("datum", endDate);
+      adjQuery = adjQuery.gte("created_at", `${startDate}T00:00:00`).lte("created_at", `${endDate}T23:59:59`);
+    }
+
     const [{ data: allEntries }, { data: allAdjustments }] = await Promise.all([
-      supabase.from("time_entries").select("user_id, datum, stunden, taetigkeit").order("datum"),
-      supabase.from("za_adjustments").select("user_id, hours"),
+      entriesQuery,
+      adjQuery,
     ]);
 
     if (!allEntries) {
@@ -1698,14 +1674,34 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
     const result = activeProfiles.map(profile => {
       const userEntries = allEntries.filter(e => e.user_id === profile.id);
 
-      const fridayDates = new Set<string>();
+      // Group entries by date and sum hours per day
+      const dailyHours: Record<string, { total: number; isZA: boolean }> = {};
       userEntries.forEach(e => {
-        const d = new Date(e.datum);
-        if (d.getDay() === 5 && !["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch", "Zeitausgleich"].includes(e.taetigkeit)) {
-          fridayDates.add(e.datum);
+        if (!dailyHours[e.datum]) dailyHours[e.datum] = { total: 0, isZA: e.taetigkeit === "Zeitausgleich" };
+        if (e.taetigkeit !== "Zeitausgleich") {
+          dailyHours[e.datum].total += Number(e.stunden);
         }
       });
-      const accrued = fridayDates.size * 0.5;
+
+      // Calculate overtime: hours over DAILY_WORK_HOURS on MO-DO, all hours on FR/SA/SO
+      let accrued = 0;
+      const absenceTypes = ["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch", "Zeitausgleich"];
+      Object.entries(dailyHours).forEach(([datum, info]) => {
+        const dateObj = new Date(datum + "T00:00:00");
+        const dayEntries = userEntries.filter(e => e.datum === datum);
+        const hasAbsenceOnly = dayEntries.every(e => absenceTypes.includes(e.taetigkeit || ""));
+        if (hasAbsenceOnly) return;
+
+        if (isWorkingDay(dateObj)) {
+          // MO-DO: overtime is anything over 9.625h
+          if (info.total > DAILY_WORK_HOURS) {
+            accrued += info.total - DAILY_WORK_HOURS;
+          }
+        } else {
+          // FR/SA/SO: all worked hours count as overtime
+          accrued += info.total;
+        }
+      });
 
       const taken = userEntries
         .filter(e => e.taetigkeit === "Zeitausgleich")
@@ -1714,7 +1710,7 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
       return {
         userId: profile.id,
         name: `${profile.vorname} ${profile.nachname}`,
-        accrued,
+        accrued: Math.round(accrued * 100) / 100,
         taken,
         adjustments: adjMap[profile.id] || 0,
       };
@@ -1722,6 +1718,51 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
 
     setZaData(result);
     setLoadingZA(false);
+  };
+
+  const openHistoryDialog = async (userId: string) => {
+    setHistoryUserId(userId);
+    setHistoryLoading(true);
+
+    const [{ data: zaAdj }, { data: vacAdj }] = await Promise.all([
+      supabase.from("za_adjustments").select("id, hours, reason, created_at, adjusted_by").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabase.from("vacation_adjustments" as any).select("id, days, reason, source, created_at, adjusted_by").eq("user_id", userId).order("created_at", { ascending: false }),
+    ]);
+
+    const allAdminIds = [
+      ...new Set([
+        ...(zaAdj || []).map((d: any) => d.adjusted_by),
+        ...((vacAdj as any[]) || []).map((d: any) => d.adjusted_by),
+      ]),
+    ];
+
+    const { data: adminProfiles } = allAdminIds.length > 0
+      ? await supabase.from("profiles").select("id, vorname, nachname").in("id", allAdminIds)
+      : { data: [] };
+
+    const adminMap: Record<string, string> = {};
+    (adminProfiles || []).forEach((p: any) => {
+      adminMap[p.id] = `${p.vorname} ${p.nachname}`.trim();
+    });
+
+    setHistoryData({
+      zaHistory: (zaAdj || []).map((d: any) => ({
+        id: d.id,
+        hours: Number(d.hours),
+        reason: d.reason,
+        created_at: d.created_at,
+        admin_name: adminMap[d.adjusted_by] || "Unbekannt",
+      })),
+      vacHistory: ((vacAdj as any[]) || []).map((d: any) => ({
+        id: d.id,
+        days: Number(d.days),
+        reason: d.reason,
+        source: d.source || "manual",
+        created_at: d.created_at,
+        admin_name: adminMap[d.adjusted_by] || "Unbekannt",
+      })),
+    });
+    setHistoryLoading(false);
   };
 
   const openAdjustDialog = async (userId: string) => {
@@ -1807,10 +1848,26 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
       </h2>
       <Card>
         <CardHeader>
-          <CardTitle>ZA-Kontostand pro Mitarbeiter</CardTitle>
-          <CardDescription>
-            Gutschrift: +0,5h pro gearbeitetem Freitag • Abbuchung: Zeitausgleich-Einträge
-          </CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>ZA-Kontostand pro Mitarbeiter</CardTitle>
+              <CardDescription>
+                Gutschrift: Überstunden über {DAILY_WORK_HOURS}h/Tag (MO-DO) + Freitags-/Wochenendarbeit • Abbuchung: Zeitausgleich-Einträge
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Label className="text-sm whitespace-nowrap">Monat:</Label>
+              <Input
+                type="month"
+                className="w-[180px]"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+              />
+              {filterMonth && (
+                <Button variant="ghost" size="sm" onClick={() => setFilterMonth("")}>Alle</Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loadingZA ? (
@@ -1844,8 +1901,11 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
                         <td className={`p-3 text-right font-bold ${saldo < 0 ? 'text-destructive' : 'text-primary'}`}>
                           {saldo.toFixed(1)}h
                         </td>
-                        <td className="p-3 text-right">
-                          <Button variant="ghost" size="icon" onClick={() => openAdjustDialog(row.userId)}>
+                        <td className="p-3 text-right flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" title="Verlauf anzeigen" onClick={() => openHistoryDialog(row.userId)}>
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Korrektur" onClick={() => openAdjustDialog(row.userId)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         </td>
@@ -1859,13 +1919,93 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
         </CardContent>
       </Card>
 
+      {/* History Dialog */}
+      <Dialog open={!!historyUserId} onOpenChange={(open) => { if (!open) setHistoryUserId(null); }}>
+        <DialogContent className="max-w-lg max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>Verlauf: {zaData.find(r => r.userId === historyUserId)?.name}</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                const row = zaData.find(r => r.userId === historyUserId);
+                if (!row) return null;
+                const saldo = row.accrued - row.taken + row.adjustments;
+                return (
+                  <span className="flex gap-4 mt-1">
+                    <span>ZA-Saldo: <span className={`font-bold ${saldo < 0 ? 'text-destructive' : 'text-primary'}`}>{saldo.toFixed(1)}h</span></span>
+                  </span>
+                );
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {historyLoading ? (
+              <p className="text-muted-foreground p-4">Lädt...</p>
+            ) : (
+              <div className="space-y-4 p-1">
+                <div>
+                  <h4 className="font-semibold text-sm mb-2">ZA-Korrekturen</h4>
+                  {historyData.zaHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Keine Einträge</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {historyData.zaHistory.map(h => (
+                        <div key={h.id} className="text-sm border rounded-md p-2 bg-muted/30">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">{h.hours > 0 ? "+" : ""}{h.hours.toFixed(1)}h</span>
+                            <span className="text-muted-foreground text-xs">{format(new Date(h.created_at), "dd.MM.yyyy HH:mm")}</span>
+                          </div>
+                          <p className="text-muted-foreground">{h.reason}</p>
+                          <p className="text-xs text-muted-foreground">von {h.admin_name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold text-sm mb-2">Urlaubskorrekturen</h4>
+                  {historyData.vacHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Keine Einträge</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {historyData.vacHistory.map(h => (
+                        <div key={h.id} className="text-sm border rounded-md p-2 bg-muted/30">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{h.days > 0 ? "+" : ""}{h.days.toFixed(0)} Tage</span>
+                              <Badge variant={h.source === "auto" ? "secondary" : "outline"} className="text-xs">
+                                {h.source === "auto" ? "Automatische Jahresgutschrift" : "Manuelle Korrektur"}
+                              </Badge>
+                            </div>
+                            <span className="text-muted-foreground text-xs">{format(new Date(h.created_at), "dd.MM.yyyy HH:mm")}</span>
+                          </div>
+                          <p className="text-muted-foreground">{h.reason}</p>
+                          <p className="text-xs text-muted-foreground">von {h.admin_name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
       {/* ZA Adjustment Dialog */}
       <Dialog open={!!editUserId} onOpenChange={(open) => { if (!open) setEditUserId(null); }}>
         <DialogContent className="max-w-lg max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>ZA-Korrektur: {editRow?.name}</DialogTitle>
-            <DialogDescription>
-              Aktueller Saldo: <span className="font-bold">{editSaldo.toFixed(1)}h</span>
+            <DialogDescription asChild>
+              <div className="space-y-1 mt-1">
+                <div className="flex gap-4">
+                  <span>ZA-Saldo: <span className={`font-bold ${editSaldo < 0 ? 'text-destructive' : 'text-primary'}`}>{editSaldo.toFixed(1)}h</span></span>
+                </div>
+                {adjustHistory.length > 0 && (
+                  <span className="text-xs">Letzte Korrektur: {format(new Date(adjustHistory[0].created_at), "dd.MM.yyyy")}</span>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
@@ -1899,10 +2039,12 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
                 </Button>
               </DialogFooter>
 
-              {adjustHistory.length > 0 && (
-                <div className="pt-2">
-                  <Separator className="mb-3" />
-                  <h4 className="font-semibold text-sm mb-2">Bisherige Korrekturen</h4>
+              <div className="pt-2">
+                <Separator className="mb-3" />
+                <h4 className="font-semibold text-sm mb-2">Bisherige Korrekturen</h4>
+                {adjustHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Keine Korrekturen vorhanden</p>
+                ) : (
                   <div className="space-y-2">
                     {adjustHistory.map(h => (
                       <div key={h.id} className="text-sm border rounded-md p-2 bg-muted/30">
@@ -1917,8 +2059,8 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </ScrollArea>
         </DialogContent>
@@ -1932,16 +2074,17 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
   const { toast } = useToast();
   const [vacData, setVacData] = useState<{ userId: string; name: string; entitled: number; taken: number }[]>([]);
   const [loadingVac, setLoadingVac] = useState(true);
+  const [filterMonth, setFilterMonth] = useState("");
 
   const [editUserId, setEditUserId] = useState<string | null>(null);
   const [adjustDays, setAdjustDays] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [savingAdjust, setSavingAdjust] = useState(false);
-  const [adjustHistory, setAdjustHistory] = useState<{ id: string; days: number; reason: string; created_at: string; admin_name: string }[]>([]);
+  const [adjustHistory, setAdjustHistory] = useState<{ id: string; days: number; reason: string; source: string; created_at: string; admin_name: string }[]>([]);
 
   useEffect(() => {
     fetchVacData();
-  }, [profiles]);
+  }, [profiles, filterMonth]);
 
   const fetchVacData = async () => {
     if (profiles.length === 0) return;
@@ -1949,9 +2092,20 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
 
     const activeProfiles = profiles.filter(p => p.is_active);
 
+    let entriesQuery = supabase.from("time_entries").select("user_id, taetigkeit, datum").eq("taetigkeit", "Urlaub");
+    let adjQuery = supabase.from("vacation_adjustments" as any).select("user_id, days, created_at");
+
+    if (filterMonth) {
+      const [year, month] = filterMonth.split("-");
+      const startDate = `${year}-${month}-01`;
+      const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split("T")[0];
+      entriesQuery = entriesQuery.gte("datum", startDate).lte("datum", endDate);
+      adjQuery = adjQuery.gte("created_at", `${startDate}T00:00:00`).lte("created_at", `${endDate}T23:59:59`);
+    }
+
     const [{ data: allEntries }, { data: allAdjustments }] = await Promise.all([
-      supabase.from("time_entries").select("user_id, taetigkeit, datum").eq("taetigkeit", "Urlaub"),
-      supabase.from("vacation_adjustments" as any).select("user_id, days"),
+      entriesQuery,
+      adjQuery,
     ]);
 
     // Sum adjustments (entitled days) per user
@@ -1985,7 +2139,7 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
 
     const { data } = await supabase
       .from("vacation_adjustments" as any)
-      .select("id, days, reason, created_at, adjusted_by")
+      .select("id, days, reason, source, created_at, adjusted_by")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -2005,6 +2159,7 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
         id: d.id,
         days: Number(d.days),
         reason: d.reason,
+        source: d.source || "manual",
         created_at: d.created_at,
         admin_name: adminMap[d.adjusted_by] || "Unbekannt",
       })));
@@ -2033,6 +2188,7 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
       days: d,
       reason: adjustReason.trim(),
       adjusted_by: user.id,
+      source: "manual",
     } as any);
 
     if (error) {
@@ -2056,10 +2212,26 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
       </h2>
       <Card>
         <CardHeader>
-          <CardTitle>Urlaubssaldo pro Mitarbeiter</CardTitle>
-          <CardDescription>
-            Guthaben aus Admin-Korrekturen (z.B. +25 Tage Jahresurlaub) • Verbrauch: Urlaubs-Einträge in der Zeiterfassung
-          </CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>Urlaubssaldo pro Mitarbeiter</CardTitle>
+              <CardDescription>
+                Guthaben aus automatischer Jahresgutschrift + Admin-Korrekturen • Verbrauch: Urlaubs-Einträge in der Zeiterfassung
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Label className="text-sm whitespace-nowrap">Monat:</Label>
+              <Input
+                type="month"
+                className="w-[180px]"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+              />
+              {filterMonth && (
+                <Button variant="ghost" size="sm" onClick={() => setFilterMonth("")}>Alle</Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loadingVac ? (
@@ -2109,8 +2281,16 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
         <DialogContent className="max-w-lg max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>Urlaubskorrektur: {editRow?.name}</DialogTitle>
-            <DialogDescription>
-              Aktueller Saldo: <span className="font-bold">{editSaldo.toFixed(0)} Tage</span>
+            <DialogDescription asChild>
+              <div className="space-y-1 mt-1">
+                <div className="flex gap-4">
+                  <span>Saldo: <span className={`font-bold ${editSaldo < 0 ? 'text-destructive' : 'text-primary'}`}>{editSaldo.toFixed(0)} Tage</span></span>
+                  <span className="text-muted-foreground">({editRow?.entitled.toFixed(0) || 0} Guthaben / {editRow?.taken || 0} verbraucht)</span>
+                </div>
+                {adjustHistory.length > 0 && (
+                  <span className="text-xs">Letzte Korrektur: {format(new Date(adjustHistory[0].created_at), "dd.MM.yyyy")}</span>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
@@ -2144,15 +2324,22 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
                 </Button>
               </DialogFooter>
 
-              {adjustHistory.length > 0 && (
-                <div className="pt-2">
-                  <Separator className="mb-3" />
-                  <h4 className="font-semibold text-sm mb-2">Bisherige Korrekturen</h4>
+              <div className="pt-2">
+                <Separator className="mb-3" />
+                <h4 className="font-semibold text-sm mb-2">Bisherige Korrekturen</h4>
+                {adjustHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Keine Korrekturen vorhanden</p>
+                ) : (
                   <div className="space-y-2">
                     {adjustHistory.map(h => (
                       <div key={h.id} className="text-sm border rounded-md p-2 bg-muted/30">
-                        <div className="flex justify-between">
-                          <span className="font-medium">{h.days > 0 ? "+" : ""}{h.days.toFixed(0)} Tage</span>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{h.days > 0 ? "+" : ""}{h.days.toFixed(0)} Tage</span>
+                            <Badge variant={h.source === "auto" ? "secondary" : "outline"} className="text-xs">
+                              {h.source === "auto" ? "Automatisch" : "Manuell"}
+                            </Badge>
+                          </div>
                           <span className="text-muted-foreground text-xs">
                             {format(new Date(h.created_at), "dd.MM.yyyy HH:mm")}
                           </span>
@@ -2162,8 +2349,8 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </ScrollArea>
         </DialogContent>

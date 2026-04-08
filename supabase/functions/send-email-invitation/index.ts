@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) throw new Error('RESEND_API_KEY not configured');
 
-    const appUrl = 'https://epower-gmbh.app';
+    const appUrl = 'https://fasching-gebaeudetechnik.app';
     const registrationLink = `${appUrl}/auth`;
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -50,12 +50,12 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'ePower GmbH <noreply@chrisnapetschnig.at>',
+        from: 'FASCHING Gebäudetechnik <noreply@chrisnapetschnig.at>',
         to: [email],
-        subject: 'Einladung zur ePower GmbH Mitarbeiter-App',
+        subject: 'Einladung zur FASCHING Gebäudetechnik Mitarbeiter-App',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Willkommen bei ePower GmbH!</h2>
+            <h2 style="color: #333;">Willkommen bei FASCHING Gebäudetechnik!</h2>
             <p style="color: #555; font-size: 16px;">
               Du wurdest eingeladen, dich in unserer Mitarbeiter-App zu registrieren.
             </p>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer } from "lucide-react";
+import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer, Info, Coffee, UtensilsCrossed } from "lucide-react";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
 import { FillRemainingHoursDialog } from "@/components/FillRemainingHoursDialog";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,18 +12,32 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
+import { useBreakValidation } from "@/hooks/useBreakValidation";
 import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
 import {
   calculateSuggestedStartTime,
   calculateWorkTimeRange,
+  calculateHoursFromTimes,
+  blockSpansBreakfast,
+  blockSpansLunch,
   getNormalWorkingHours,
   getWeeklyTargetHours,
   getTotalWorkingHours,
   timeToMinutes,
+  isWorkingDay,
+  DEFAULT_START_TIME,
+  DEFAULT_END_TIME,
+  LUNCH_BREAK_START,
+  LUNCH_BREAK_END,
+  LUNCH_BREAK_MINUTES,
+  BREAKFAST_BREAK_START,
+  BREAKFAST_BREAK_END,
+  DAILY_WORK_HOURS,
 } from "@/lib/workingHours";
 
 type Project = {
@@ -48,27 +62,24 @@ interface TimeBlock {
   id: string;
   locationType: "baustelle" | "werkstatt";
   projectId: string;
-  
   taetigkeit: string;
   startTime: string;
   endTime: string;
-  pauseStart: string;
-  pauseEnd: string;
+  hasBreakfastBreak: boolean;
+  hasLunchBreak: boolean;
   selectedEmployees: string[];
-  directHours: string;
 }
 
-const createDefaultBlock = (): TimeBlock => ({
+const createDefaultBlock = (startTime = DEFAULT_START_TIME): TimeBlock => ({
   id: crypto.randomUUID(),
   locationType: "baustelle",
   projectId: "",
   taetigkeit: "",
-  startTime: "07:00",
+  startTime,
   endTime: "",
-  pauseStart: "",
-  pauseEnd: "",
+  hasBreakfastBreak: false,
+  hasLunchBreak: false,
   selectedEmployees: [],
-  directHours: "",
 });
 
 const ABSENCE_TYPES = ["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch", "Zeitausgleich"];
@@ -100,53 +111,28 @@ const TimeTracking = () => {
   });
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([createDefaultBlock()]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const parseDirectHours = (value: string): number => {
-    const normalized = value.replace(",", ".").trim();
-    if (!normalized) return 0;
+  // Break validation: Prüft ob Pausen heute schon eingetragen sind
+  const { breakfastTaken, lunchTaken, refresh: refreshBreaks } = useBreakValidation(currentUserId, selectedDate);
 
-    const parsed = Number.parseFloat(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
+  // Prüfe ob innerhalb der aktuellen Blöcke schon eine Pause ausgewählt ist
+  const breakfastInBlocks = timeBlocks.some((b) => b.hasBreakfastBreak);
+  const lunchInBlocks = timeBlocks.some((b) => b.hasLunchBreak);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
+
+  const getBlockHours = (block: TimeBlock): number => {
+    return calculateHoursFromTimes(block.startTime, block.endTime, block.hasLunchBreak);
   };
 
   const getLastExistingEndTime = (entries: ExistingEntry[] = existingDayEntries): string | null => {
     if (!entries.length) return null;
     return entries[entries.length - 1].end_time;
-  };
-
-  const recalculateTimeBlocks = (blocks: TimeBlock[], lastExistingEndTime = getLastExistingEndTime()): TimeBlock[] => {
-    const currentDate = new Date(selectedDate);
-    let previousEndTime = lastExistingEndTime;
-
-    return blocks.map((block) => {
-      const suggestedStartTime = calculateSuggestedStartTime(currentDate, previousEndTime, 0);
-      const hours = parseDirectHours(block.directHours);
-
-      if (hours <= 0) {
-        return {
-          ...block,
-          startTime: suggestedStartTime,
-          endTime: "",
-          pauseStart: "",
-          pauseEnd: "",
-        };
-      }
-
-      const calculatedTimes = calculateWorkTimeRange(currentDate, hours, suggestedStartTime);
-      previousEndTime = calculatedTimes.endTime || previousEndTime;
-
-      return {
-        ...block,
-        startTime: calculatedTimes.startTime,
-        endTime: calculatedTimes.endTime,
-        pauseStart: calculatedTimes.pauseStart,
-        pauseEnd: calculatedTimes.pauseEnd,
-      };
-    });
-  };
-
-  const updateBlocks = (updater: (blocks: TimeBlock[]) => TimeBlock[], lastExistingEndTime?: string | null) => {
-    setTimeBlocks((prev) => recalculateTimeBlocks(updater(prev), lastExistingEndTime));
   };
 
   const getAbsenceLabel = (type: string) => {
@@ -161,7 +147,7 @@ const TimeTracking = () => {
   };
 
   const getEntryLabel = (entry: ExistingEntry) => {
-    if (entry.location_type === "regie") return "Regie";
+    if (entry.location_type === "regie") return "Arbeitsbericht";
     return entry.project_name || entry.taetigkeit;
   };
 
@@ -176,7 +162,6 @@ const TimeTracking = () => {
     setLoading(false);
   };
 
-
   const fetchExistingDayEntries = async (date: string) => {
     setLoadingDayEntries(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -187,15 +172,7 @@ const TimeTracking = () => {
 
     const { data, error } = await supabase
       .from("time_entries")
-      .select(`
-        id,
-        start_time,
-        end_time,
-        stunden,
-        taetigkeit,
-        location_type,
-        projects (name, plz)
-      `)
+      .select(`id, start_time, end_time, stunden, taetigkeit, location_type, projects (name, plz)`)
       .eq("user_id", user.id)
       .eq("datum", date)
       .order("start_time");
@@ -212,13 +189,15 @@ const TimeTracking = () => {
         plz: entry.projects?.plz || null,
       }));
       setExistingDayEntries(entries);
-      setTimeBlocks(recalculateTimeBlocks([createDefaultBlock()], getLastExistingEndTime(entries)));
+      const lastEnd = entries.length ? entries[entries.length - 1].end_time : null;
+      setTimeBlocks([createDefaultBlock(lastEnd || DEFAULT_START_TIME)]);
     } else {
       setExistingDayEntries([]);
-      setTimeBlocks(recalculateTimeBlocks([createDefaultBlock()], null));
+      setTimeBlocks([createDefaultBlock()]);
     }
 
     setLoadingDayEntries(false);
+    refreshBreaks();
   };
 
   useEffect(() => {
@@ -227,21 +206,30 @@ const TimeTracking = () => {
 
   useEffect(() => {
     fetchProjects();
-
     const channel = supabase
       .channel("time-tracking-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, fetchProjects)
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const updateBlock = (blockId: string, updates: Partial<TimeBlock>) => {
-    updateBlocks((prev) => prev.map((block) => (
-      block.id === blockId ? { ...block, ...updates } : block
-    )));
+    setTimeBlocks((prev) => prev.map((block) => {
+      if (block.id !== blockId) return block;
+      const updated = { ...block, ...updates };
+      // Auto-check breaks based on time range
+      if ("startTime" in updates || "endTime" in updates) {
+        const st = updated.startTime;
+        const et = updated.endTime;
+        if (!breakfastTaken && !breakfastInBlocks) {
+          updated.hasBreakfastBreak = blockSpansBreakfast(st, et);
+        }
+        if (!lunchTaken && !lunchInBlocks) {
+          updated.hasLunchBreak = blockSpansLunch(st, et);
+        }
+      }
+      return updated;
+    }));
   };
 
   const updateBlockEmployees = (blockId: string, employees: string[]) => {
@@ -251,42 +239,37 @@ const TimeTracking = () => {
   };
 
   const addTimeBlock = () => {
-    updateBlocks((prev) => [...prev, createDefaultBlock()]);
+    const lastBlock = timeBlocks[timeBlocks.length - 1];
+    const nextStart = lastBlock?.endTime || getLastExistingEndTime() || DEFAULT_START_TIME;
+    setTimeBlocks((prev) => [...prev, createDefaultBlock(nextStart)]);
   };
 
   const removeBlock = (blockId: string) => {
-    updateBlocks((prev) => prev.filter((block) => block.id !== blockId));
-  };
-
-  const calculateBlockPauseMinutes = (block: TimeBlock): number => {
-    if (!block.pauseStart || !block.pauseEnd) return 0;
-    return Math.max(0, timeToMinutes(block.pauseEnd) - timeToMinutes(block.pauseStart));
-  };
-
-  const calculateBlockHours = (block: TimeBlock): number => {
-    return parseDirectHours(block.directHours);
+    setTimeBlocks((prev) => prev.filter((block) => block.id !== blockId));
   };
 
   const calculateTotalHours = (): string => {
-    return timeBlocks.reduce((sum, block) => sum + calculateBlockHours(block), 0).toFixed(2);
+    return timeBlocks.reduce((sum, block) => sum + getBlockHours(block), 0).toFixed(2);
   };
 
   const applyFullDayPreset = () => {
-    if (!timeBlocks.length) return;
-
-    const totalHours = getTotalWorkingHours(new Date(selectedDate));
-    if (totalHours <= 0) {
-      toast({ variant: "destructive", title: "Arbeitsfrei", description: "Am Wochenende wird nicht gearbeitet" });
+    const dateObj = new Date(selectedDate);
+    if (!isWorkingDay(dateObj)) {
+      toast({ variant: "destructive", title: "Kein Arbeitstag", description: "An diesem Tag wird nicht gearbeitet (MO-DO)" });
       return;
     }
 
-    updateBlocks((prev) => prev.map((block, index) => (
-      index === 0 ? { ...block, directHours: totalHours.toFixed(2) } : block
-    )));
+    setTimeBlocks([{
+      ...createDefaultBlock(),
+      startTime: DEFAULT_START_TIME,
+      endTime: DEFAULT_END_TIME,
+      hasBreakfastBreak: !breakfastTaken,
+      hasLunchBreak: !lunchTaken,
+    }]);
   };
 
   const calculateAbsenceTimes = (date: Date, hours: number) => {
-    const calculated = calculateWorkTimeRange(date, hours, "07:00");
+    const calculated = calculateWorkTimeRange(date, hours, DEFAULT_START_TIME);
     return {
       start_time: calculated.startTime,
       end_time: calculated.endTime,
@@ -298,18 +281,14 @@ const TimeTracking = () => {
 
   const getWorkdaysInRange = (from: string, to: string): string[] => {
     const days: string[] = [];
-    const start = new Date(from);
+    const current = new Date(from);
     const end = new Date(to);
-    const current = new Date(start);
-
     while (current <= end) {
-      const dow = current.getDay();
-      if (dow >= 1 && dow <= 5) {
+      if (isWorkingDay(current)) {
         days.push(current.toISOString().split("T")[0]);
       }
       current.setDate(current.getDate() + 1);
     }
-
     return days;
   };
 
@@ -325,15 +304,9 @@ const TimeTracking = () => {
     }
 
     setCreatingProject(true);
-
     const { data, error } = await supabase
       .from("projects")
-      .insert({
-        name: newProjectName.trim(),
-        plz: newProjectPlz.trim(),
-        adresse: newProjectAddress.trim() || null,
-        status: "aktiv",
-      })
+      .insert({ name: newProjectName.trim(), plz: newProjectPlz.trim(), adresse: newProjectAddress.trim() || null, status: "aktiv" })
       .select()
       .single();
 
@@ -344,11 +317,7 @@ const TimeTracking = () => {
     }
 
     sonnerToast.success("Projekt erfolgreich erstellt");
-
-    if (pendingBlockIdForNewProject) {
-      updateBlock(pendingBlockIdForNewProject, { projectId: data.id });
-    }
-
+    if (pendingBlockIdForNewProject) updateBlock(pendingBlockIdForNewProject, { projectId: data.id });
     setShowNewProjectDialog(false);
     setNewProjectName("");
     setNewProjectPlz("");
@@ -371,7 +340,7 @@ const TimeTracking = () => {
     if (absenceData.rangeMode) {
       const workdays = getWorkdaysInRange(absenceData.dateFrom, absenceData.dateTo);
       if (workdays.length === 0) {
-        toast({ variant: "destructive", title: "Fehler", description: "Keine Werktage im gewählten Zeitraum." });
+        toast({ variant: "destructive", title: "Fehler", description: "Keine Arbeitstage im gewählten Zeitraum (MO-DO)." });
         setSubmittingAbsence(false);
         return;
       }
@@ -437,11 +406,11 @@ const TimeTracking = () => {
         setShowAbsenceDialog(false);
         fetchExistingDayEntries(selectedDate);
       }
-
       setSubmittingAbsence(false);
       return;
     }
 
+    // Single day absence
     const selectedDateObj = new Date(absenceData.date);
     const workingHours = absenceData.customHours ? parseFloat(absenceData.customHours) : getNormalWorkingHours(selectedDateObj);
     const { data: existingEntries } = await supabase
@@ -482,10 +451,8 @@ const TimeTracking = () => {
       setShowAbsenceDialog(false);
       fetchExistingDayEntries(selectedDate);
     }
-
     setSubmittingAbsence(false);
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -498,30 +465,32 @@ const TimeTracking = () => {
       return;
     }
 
+    // Validation
     for (let i = 0; i < timeBlocks.length; i++) {
       const block = timeBlocks[i];
       const blockNum = i + 1;
-      const blockHours = calculateBlockHours(block);
-
-      if (blockHours <= 0) {
-        toast({ variant: "destructive", title: "Fehler", description: `Block ${blockNum}: Bitte gültige Stunden eingeben` });
-        setSaving(false);
-        return;
-      }
+      const blockHours = getBlockHours(block);
 
       if (!block.startTime || !block.endTime) {
-        toast({ variant: "destructive", title: "Fehler", description: `Block ${blockNum}: Zeiten konnten nicht berechnet werden` });
+        toast({ variant: "destructive", title: "Fehler", description: `Block ${blockNum}: Bitte Von- und Bis-Zeit eingeben` });
         setSaving(false);
         return;
       }
 
       if (timeToMinutes(block.endTime) <= timeToMinutes(block.startTime)) {
-        toast({ variant: "destructive", title: "Fehler", description: `Block ${blockNum}: Endzeit muss nach Startzeit liegen` });
+        toast({ variant: "destructive", title: "Fehler", description: `Block ${blockNum}: Bis-Zeit muss nach Von-Zeit liegen` });
+        setSaving(false);
+        return;
+      }
+
+      if (blockHours <= 0) {
+        toast({ variant: "destructive", title: "Fehler", description: `Block ${blockNum}: Keine gültigen Arbeitsstunden` });
         setSaving(false);
         return;
       }
     }
 
+    // Check existing entries
     const { data: existingEntries } = await supabase
       .from("time_entries")
       .select("id, start_time, end_time, taetigkeit, stunden")
@@ -540,13 +509,14 @@ const TimeTracking = () => {
       }
 
       const existingHoursTotal = existingEntries.reduce((sum, entry) => sum + Number(entry.stunden), 0);
-      const newHoursTotal = timeBlocks.reduce((sum, block) => sum + calculateBlockHours(block), 0);
+      const newHoursTotal = timeBlocks.reduce((sum, block) => sum + getBlockHours(block), 0);
       if (existingHoursTotal + newHoursTotal > dailyTarget + 4) {
         toast({ variant: "destructive", title: "Zu viele Stunden", description: `Tagessumme würde ${(existingHoursTotal + newHoursTotal).toFixed(1)}h betragen.` });
         setSaving(false);
         return;
       }
 
+      // Time overlap check
       for (const entry of existingEntries) {
         if (ABSENCE_TYPES.includes(entry.taetigkeit)) continue;
         const existingStart = timeToMinutes(entry.start_time);
@@ -565,12 +535,13 @@ const TimeTracking = () => {
       }
     }
 
+    // Save entries
     let totalEntriesCreated = 0;
     let hasError = false;
 
     for (const block of timeBlocks) {
-      const blockHours = calculateBlockHours(block);
-      const pauseMinutes = calculateBlockPauseMinutes(block);
+      const blockHours = getBlockHours(block);
+      const pauseMinutes = block.hasLunchBreak ? LUNCH_BREAK_MINUTES : 0;
 
       const mainEntry = {
         user_id: user.id,
@@ -582,37 +553,36 @@ const TimeTracking = () => {
         start_time: block.startTime,
         end_time: block.endTime,
         pause_minutes: pauseMinutes,
-        pause_start: block.pauseStart || null,
-        pause_end: block.pauseEnd || null,
+        pause_start: block.hasLunchBreak ? LUNCH_BREAK_START : null,
+        pause_end: block.hasLunchBreak ? LUNCH_BREAK_END : null,
         location_type: block.locationType,
+        has_breakfast_break: block.hasBreakfastBreak,
+        has_lunch_break: block.hasLunchBreak,
         notizen: null,
         week_type: null,
       };
 
       const teamEntries = block.selectedEmployees.map((workerId) => ({
-            user_id: workerId,
-            datum: selectedDate,
-            project_id: block.locationType === "baustelle" ? (block.projectId || null) : null,
-            disturbance_id: null,
-            taetigkeit: block.taetigkeit || "",
-            stunden: blockHours,
-            start_time: block.startTime,
-            end_time: block.endTime,
-            pause_minutes: pauseMinutes,
-            pause_start: block.pauseStart || null,
-            pause_end: block.pauseEnd || null,
-            location_type: block.locationType,
-            notizen: null,
-            week_type: null,
-          }));
+        user_id: workerId,
+        datum: selectedDate,
+        project_id: block.locationType === "baustelle" ? (block.projectId || null) : null,
+        disturbance_id: null,
+        taetigkeit: block.taetigkeit || "",
+        stunden: blockHours,
+        start_time: block.startTime,
+        end_time: block.endTime,
+        pause_minutes: pauseMinutes,
+        pause_start: block.hasLunchBreak ? LUNCH_BREAK_START : null,
+        pause_end: block.hasLunchBreak ? LUNCH_BREAK_END : null,
+        location_type: block.locationType,
+        has_breakfast_break: block.hasBreakfastBreak,
+        has_lunch_break: block.hasLunchBreak,
+        notizen: null,
+        week_type: null,
+      }));
 
       const { data: result, error: functionError } = await supabase.functions.invoke("create-team-time-entries", {
-        body: {
-          mainEntry,
-          teamEntries,
-          disturbanceIds: [],
-          createWorkerLinks: true,
-        },
+        body: { mainEntry, teamEntries, disturbanceIds: [], createWorkerLinks: true },
       });
 
       if (functionError || !result?.success) {
@@ -625,9 +595,7 @@ const TimeTracking = () => {
     }
 
     if (!hasError) {
-      const teamInfo = timeBlocks.some((block) => block.selectedEmployees.length > 0)
-        ? " (inkl. Team-Mitglieder)"
-        : "";
+      const teamInfo = timeBlocks.some((block) => block.selectedEmployees.length > 0) ? " (inkl. Team-Mitglieder)" : "";
       toast({ title: "Erfolg", description: `${totalEntriesCreated} Eintrag/Einträge gespeichert${teamInfo}` });
       await fetchExistingDayEntries(selectedDate);
     } else {
@@ -664,19 +632,30 @@ const TimeTracking = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Datum */}
               <div className="space-y-2">
                 <Label htmlFor="date">Datum</Label>
                 <Input id="date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} required />
                 <p className="text-sm text-muted-foreground">{format(new Date(selectedDate), "EEEE, dd. MMMM yyyy", { locale: de })}</p>
               </div>
 
+              {/* Arbeitszeit-Info */}
               <div className="rounded-lg border bg-card p-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-xs">{getWeeklyTargetHours()}h Wochensoll</Badge>
-                  <span className="text-xs text-muted-foreground">Mo-Do: 8,5h • Fr: 5h (inkl. 0,5h Überstunde/ZA)</span>
+                  <span className="text-xs text-muted-foreground">MO-DO: {DAILY_WORK_HOURS}h (07:00-17:08)</span>
                 </div>
               </div>
 
+              {/* Hinweis: Mehrere Baustellen */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  Bei mehreren Baustellen bitte verschiedene Zeitblöcke eintragen. Die Vormittagspause (09:00-09:15) zählt als Arbeitszeit, die Mittagspause (12:00-12:30) wird abgezogen.
+                </p>
+              </div>
+
+              {/* Bestehende Tageseinträge */}
               {loadingDayEntries ? (
                 <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground flex items-center gap-2">
                   <Calendar className="w-4 h-4 animate-pulse" />
@@ -686,23 +665,13 @@ const TimeTracking = () => {
                 <div className={`rounded-lg p-4 space-y-3 ${isDayBlocked ? "bg-destructive/10 border border-destructive/30" : isPartialAbsence ? "bg-primary/5 border border-primary/20" : "bg-muted/40 border border-border"}`}>
                   <div className="flex items-center gap-2 font-medium text-sm">
                     {isDayBlocked ? (
-                      <>
-                        <AlertTriangle className="w-4 h-4 text-destructive" />
-                        <span className="text-destructive">Tag blockiert ({absenceEntries[0]?.taetigkeit})</span>
-                      </>
+                      <><AlertTriangle className="w-4 h-4 text-destructive" /><span className="text-destructive">Tag blockiert ({absenceEntries[0]?.taetigkeit})</span></>
                     ) : isPartialAbsence ? (
-                      <>
-                        <Calendar className="w-4 h-4 text-primary" />
-                        <span className="text-foreground">Teilweise abwesend</span>
-                      </>
+                      <><Calendar className="w-4 h-4 text-primary" /><span className="text-foreground">Teilweise abwesend</span></>
                     ) : (
-                      <>
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-foreground">Bereits gebuchte Zeiten</span>
-                      </>
+                      <><Calendar className="w-4 h-4 text-muted-foreground" /><span className="text-foreground">Bereits gebuchte Zeiten</span></>
                     )}
                   </div>
-
                   {!isDayBlocked && (
                     <div className="space-y-1.5">
                       {existingDayEntries.map((entry) => (
@@ -725,6 +694,7 @@ const TimeTracking = () => {
 
               {!isDayBlocked && (
                 <>
+                  {/* Schnellaktionen */}
                   <div className="flex flex-wrap gap-2 justify-end">
                     <Button type="button" variant="outline" size="sm" onClick={applyFullDayPreset} className="flex items-center gap-1.5">
                       <Sun className="w-3.5 h-3.5" />Regelarbeitszeit ausfüllen
@@ -734,11 +704,16 @@ const TimeTracking = () => {
                     </Button>
                   </div>
 
+                  {/* Zeitblöcke */}
                   <div className="space-y-4">
                     {timeBlocks.map((block, index) => (
                       <div key={block.id} className="border rounded-lg p-4 space-y-4 bg-card">
+                        {/* Block Header */}
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-sm flex items-center gap-2"><Clock className="w-4 h-4" />{timeBlocks.length > 1 ? `Zeitblock ${index + 1}` : "Arbeitszeit"}</h3>
+                          <h3 className="font-semibold text-sm flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            {timeBlocks.length > 1 ? `Zeitblock ${index + 1}` : "Arbeitszeit"}
+                          </h3>
                           {timeBlocks.length > 1 && (
                             <Button type="button" variant="ghost" size="sm" onClick={() => removeBlock(block.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                               <Trash2 className="w-4 h-4" />
@@ -746,6 +721,7 @@ const TimeTracking = () => {
                           )}
                         </div>
 
+                        {/* Arbeitsort */}
                         <div className="space-y-2">
                           <Label>Arbeitsort</Label>
                           <RadioGroup
@@ -758,15 +734,16 @@ const TimeTracking = () => {
                           >
                             <div>
                               <RadioGroupItem value="baustelle" id={`baustelle-${block.id}`} className="peer sr-only" />
-                              <Label htmlFor={`baustelle-${block.id}`} className="flex h-12 cursor-pointer items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent peer-data-[state=checked]:border-primary text-sm">🏗️ Baustelle</Label>
+                              <Label htmlFor={`baustelle-${block.id}`} className="flex h-12 cursor-pointer items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent peer-data-[state=checked]:border-primary text-sm">Baustelle</Label>
                             </div>
                             <div>
                               <RadioGroupItem value="werkstatt" id={`werkstatt-${block.id}`} className="peer sr-only" />
-                              <Label htmlFor={`werkstatt-${block.id}`} className="flex h-12 cursor-pointer items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent peer-data-[state=checked]:border-primary text-sm">🔧 Werkstatt</Label>
+                              <Label htmlFor={`werkstatt-${block.id}`} className="flex h-12 cursor-pointer items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent peer-data-[state=checked]:border-primary text-sm">Werkstatt</Label>
                             </div>
                           </RadioGroup>
                         </div>
 
+                        {/* Projekt */}
                         {block.locationType === "baustelle" && (
                           <div className="space-y-2">
                             <Label>Projekt <span className="text-muted-foreground font-normal">(optional)</span></Label>
@@ -780,54 +757,115 @@ const TimeTracking = () => {
                           </div>
                         )}
 
-
+                        {/* Tätigkeit */}
                         <div className="space-y-2">
                           <Label>Tätigkeit <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                          <Input value={block.taetigkeit} onChange={(e) => updateBlock(block.id, { taetigkeit: e.target.value })} placeholder="Optional - z.B. Montage, Aufmaß..." />
+                          <Input value={block.taetigkeit} onChange={(e) => updateBlock(block.id, { taetigkeit: e.target.value })} placeholder="z.B. Heizungsmontage, Sanitärarbeiten..." />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Stunden</Label>
-                          <Input
-                            type="number"
-                            step="0.25"
-                            min="0.25"
-                            max="12"
-                            value={block.directHours}
-                            onChange={(e) => updateBlock(block.id, { directHours: e.target.value })}
-                            placeholder="z.B. 8.5"
-                            className="text-center text-lg font-mono"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Berechnet: {block.startTime || "07:00"} – {block.endTime || "—"}
-                            {block.pauseStart && block.pauseEnd && ` (Pause ${block.pauseStart}–${block.pauseEnd})`}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Die Mittagspause 12:00–12:30 wird automatisch berücksichtigt, wenn der Block über Mittag läuft.
-                          </p>
+                        {/* Von - Bis Zeiten */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Von</Label>
+                            <Input
+                              type="time"
+                              value={block.startTime}
+                              onChange={(e) => updateBlock(block.id, { startTime: e.target.value })}
+                              className="text-center font-mono"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Bis</Label>
+                            <Input
+                              type="time"
+                              value={block.endTime}
+                              onChange={(e) => updateBlock(block.id, { endTime: e.target.value })}
+                              className="text-center font-mono"
+                            />
+                          </div>
                         </div>
 
+                        {/* Pausen */}
+                        <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                          <p className="text-xs font-medium text-muted-foreground">Pausen</p>
+
+                          {/* Vormittagspause */}
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              id={`breakfast-${block.id}`}
+                              checked={block.hasBreakfastBreak}
+                              disabled={
+                                (breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak))
+                              }
+                              onCheckedChange={(checked) => updateBlock(block.id, { hasBreakfastBreak: !!checked })}
+                            />
+                            <label htmlFor={`breakfast-${block.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                              <Coffee className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Vormittagspause ({BREAKFAST_BREAK_START}-{BREAKFAST_BREAK_END})</span>
+                              <Badge variant="outline" className="text-[10px]">zählt als Arbeitszeit</Badge>
+                            </label>
+                            {(breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak)) && (
+                              <span className="text-[10px] text-muted-foreground ml-auto">bereits eingetragen</span>
+                            )}
+                          </div>
+
+                          {/* Mittagspause */}
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              id={`lunch-${block.id}`}
+                              checked={block.hasLunchBreak}
+                              disabled={
+                                (lunchTaken || (lunchInBlocks && !block.hasLunchBreak))
+                              }
+                              onCheckedChange={(checked) => updateBlock(block.id, { hasLunchBreak: !!checked })}
+                            />
+                            <label htmlFor={`lunch-${block.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                              <UtensilsCrossed className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Mittagspause ({LUNCH_BREAK_START}-{LUNCH_BREAK_END})</span>
+                              <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">wird abgezogen</Badge>
+                            </label>
+                            {(lunchTaken || (lunchInBlocks && !block.hasLunchBreak)) && (
+                              <span className="text-[10px] text-muted-foreground ml-auto">bereits eingetragen</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Team-Mitglieder */}
                         <div className="border-t pt-3">
                           <MultiEmployeeSelect selectedEmployees={block.selectedEmployees} onSelectionChange={(employees) => updateBlockEmployees(block.id, employees)} date={selectedDate} startTime={block.startTime} endTime={block.endTime} label="Weitere Mitarbeiter (optional)" />
                         </div>
 
+                        {/* Berechnete Stunden */}
                         <div className="bg-muted/50 rounded px-3 py-2 flex items-center justify-between text-sm">
-                          <span>Stunden</span>
-                          <span className="font-bold">{calculateBlockHours(block).toFixed(2)} h</span>
+                          <span>Berechnete Arbeitszeit</span>
+                          <span className="font-bold text-lg">{getBlockHours(block).toFixed(2)} h</span>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <Button type="button" variant="outline" onClick={addTimeBlock} className="w-full gap-2 border-dashed"><Plus className="w-4 h-4" />Weitere Stunden hinzufügen</Button>
-                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 flex items-center justify-between"><span className="font-medium">Gesamt zu buchen</span><span className="text-2xl font-bold">{calculateTotalHours()} h</span></div>
-                  <Button type="submit" className="w-full" disabled={saving}>{saving ? "Wird gespeichert..." : `${timeBlocks.length > 1 ? "Alle Einträge" : "Stunden"} erfassen`}</Button>
+                  {/* Weiterer Block */}
+                  <Button type="button" variant="outline" onClick={addTimeBlock} className="w-full gap-2 border-dashed">
+                    <Plus className="w-4 h-4" />Weiteren Zeitblock hinzufügen
+                  </Button>
+
+                  {/* Gesamt */}
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 flex items-center justify-between">
+                    <span className="font-medium">Gesamt zu buchen</span>
+                    <span className="text-2xl font-bold">{calculateTotalHours()} h</span>
+                  </div>
+
+                  {/* Submit */}
+                  <Button type="submit" className="w-full" disabled={saving}>
+                    {saving ? "Wird gespeichert..." : `${timeBlocks.length > 1 ? "Alle Einträge" : "Stunden"} erfassen`}
+                  </Button>
                 </>
               )}
             </form>
           </CardContent>
         </Card>
 
+        {/* New Project Dialog */}
         <Dialog open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
           <DialogContent>
             <DialogHeader>
@@ -846,6 +884,7 @@ const TimeTracking = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Absence Dialog */}
         <Dialog open={showAbsenceDialog} onOpenChange={setShowAbsenceDialog}>
           <DialogContent>
             <DialogHeader>
@@ -884,7 +923,12 @@ const TimeTracking = () => {
                 </Select>
               </div>
 
-              {!absenceData.rangeMode && <div><Label>Stunden (optional)</Label><Input type="number" step="0.5" min="0" max="24" value={absenceData.customHours} onChange={(e) => setAbsenceData({ ...absenceData, customHours: e.target.value })} placeholder="Leer lassen für automatische Berechnung" /></div>}
+              {!absenceData.rangeMode && (
+                <div>
+                  <Label>Stunden (optional)</Label>
+                  <Input type="number" step="0.5" min="0" max="24" value={absenceData.customHours} onChange={(e) => setAbsenceData({ ...absenceData, customHours: e.target.value })} placeholder="Leer lassen für automatische Berechnung" />
+                </div>
+              )}
 
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setShowAbsenceDialog(false)} disabled={submittingAbsence}>Abbrechen</Button>
@@ -894,6 +938,7 @@ const TimeTracking = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Fill Remaining Hours Dialog */}
         <FillRemainingHoursDialog
           open={showFillHoursDialog}
           onOpenChange={setShowFillHoursDialog}
@@ -905,12 +950,10 @@ const TimeTracking = () => {
           lastEndTime={getLastExistingEndTime()}
           onSubmit={async ({ projectId, locationType, description, hours, startTime, endTime, pauseMinutes, pauseStart, pauseEnd }) => {
             const { data: { user } } = await supabase.auth.getUser();
-
             if (!user) {
               toast({ variant: "destructive", title: "Fehler", description: "Sie müssen angemeldet sein" });
               return;
             }
-
             const { error } = await supabase.from("time_entries").insert({
               user_id: user.id,
               datum: selectedDate,
@@ -927,12 +970,10 @@ const TimeTracking = () => {
               notizen: null,
               week_type: null,
             });
-
             if (error) {
               toast({ variant: "destructive", title: "Fehler", description: "Reststunden konnten nicht gebucht werden" });
               throw error;
             }
-
             toast({ title: "Erfolg", description: "Reststunden wurden gebucht" });
             await fetchExistingDayEntries(selectedDate);
           }}

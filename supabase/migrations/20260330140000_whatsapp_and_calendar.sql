@@ -61,5 +61,5 @@ INSERT INTO public.app_settings (key, value) VALUES
   ('whatsapp_reminder_days', 'mo,di,mi,do,fr'),
   ('whatsapp_morning_enabled', 'true'),
   ('whatsapp_morning_time', '07:00'),
-  ('whatsapp_bot_name', 'ePower Assistent')
+  ('whatsapp_bot_name', 'FASCHING Assistent')
 ON CONFLICT (key) DO NOTHING;

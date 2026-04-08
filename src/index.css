@@ -18,8 +18,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 12%;
 
-    /* ePower GmbH Blau #1e40af als Hauptfarbe */
-    --primary: 222 82% 40%;
+    /* FASCHING Gebäudetechnik Blau als Hauptfarbe */
+    --primary: 210 62% 40%;
     --primary-foreground: 0 0% 100%;
 
     /* Neutral gray as secondary */
@@ -30,7 +30,7 @@ All colors MUST be HSL.
     --muted-foreground: 220 5% 45%;
 
     /* Blue accent */
-    --accent: 222 72% 50%;
+    --accent: 210 55% 50%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
@@ -38,14 +38,14 @@ All colors MUST be HSL.
 
     --border: 220 10% 88%;
     --input: 220 10% 92%;
-    --ring: 222 82% 40%;
+    --ring: 210 62% 40%;
 
     --radius: 0.75rem;
 
     /* Custom design tokens */
-    --epower-blue: 222 82% 40%;
-    --epower-dark: 222 85% 30%;
-    --epower-light: 222 70% 60%;
+    --fasching-blue: 210 62% 40%;
+    --fasching-dark: 210 70% 28%;
+    --fasching-light: 210 55% 58%;
     --neutral-gray: 0 0% 50%;
     
     /* Shadows */

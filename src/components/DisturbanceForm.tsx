@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useBreakValidation } from "@/hooks/useBreakValidation";
 import { format } from "date-fns";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
+import { blockSpansBreakfast, blockSpansLunch, BREAKFAST_BREAK_START, BREAKFAST_BREAK_END, LUNCH_BREAK_START, LUNCH_BREAK_END, LUNCH_BREAK_MINUTES } from "@/lib/workingHours";
 
 type MaterialEntry = {
   id: string;
@@ -45,6 +48,10 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const [saving, setSaving] = useState(false);
   const [directHoursMode, setDirectHoursMode] = useState(false);
   const [directHours, setDirectHours] = useState("");
+  const [workType, setWorkType] = useState<"projekt" | "kunde">("kunde");
+  const [hasBreakfastBreak, setHasBreakfastBreak] = useState(false);
+  const [hasLunchBreak, setHasLunchBreak] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     datum: format(new Date(), "yyyy-MM-dd"),
     startTime: "08:00",
@@ -61,7 +68,30 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [materials, setMaterials] = useState<MaterialEntry[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<{ id: string; name: string; plz: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; plz: string; adresse?: string; kunde_name?: string; kunde_email?: string; kunde_telefon?: string }[]>([]);
+
+  const { breakfastTaken, lunchTaken } = useBreakValidation(
+    userId,
+    formData.datum,
+    editData ? [editData.id] : []
+  );
+
+  // Fetch current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+  }, []);
+
+  // Auto-check breaks based on time range
+  useEffect(() => {
+    if (!directHoursMode) {
+      const spansBreakfast = blockSpansBreakfast(formData.startTime, formData.endTime);
+      const spansLunch = blockSpansLunch(formData.startTime, formData.endTime);
+      if (!breakfastTaken) setHasBreakfastBreak(spansBreakfast);
+      if (!lunchTaken) setHasLunchBreak(spansLunch);
+    }
+  }, [formData.startTime, formData.endTime, breakfastTaken, lunchTaken, directHoursMode]);
 
   useEffect(() => {
     fetchProjects();
@@ -70,10 +100,27 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const fetchProjects = async () => {
     const { data } = await supabase
       .from("projects")
-      .select("id, name, plz")
+      .select("id, name, plz, adresse, kunde_name, kunde_email, kunde_telefon")
       .eq("status", "aktiv")
       .order("name");
     if (data) setProjects(data);
+  };
+
+  const fetchProjectCustomerData = async (projectId: string) => {
+    const { data } = await supabase
+      .from("projects")
+      .select("name, plz, adresse, kunde_name, kunde_email, kunde_telefon")
+      .eq("id", projectId)
+      .single();
+    if (data) {
+      setFormData(prev => ({
+        ...prev,
+        kundeName: data.kunde_name || prev.kundeName,
+        kundeEmail: data.kunde_email || prev.kundeEmail,
+        kundeAdresse: data.adresse || prev.kundeAdresse,
+        kundeTelefon: data.kunde_telefon || prev.kundeTelefon,
+      }));
+    }
   };
 
   useEffect(() => {
@@ -91,6 +138,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         notizen: editData.notizen || "",
       });
       setSelectedProjectId(editData.project_id || null);
+      setWorkType(editData.project_id ? "projekt" : "kunde");
       loadExistingWorkers(editData.id);
       loadExistingMaterials(editData.id);
     } else {
@@ -109,6 +157,9 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       setSelectedEmployees([]);
       setMaterials([]);
       setSelectedProjectId(null);
+      setWorkType("kunde");
+      setHasBreakfastBreak(false);
+      setHasLunchBreak(false);
     }
   }, [editData, open]);
 
@@ -143,7 +194,8 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const calculateHours = (): number => {
     const [startH, startM] = formData.startTime.split(":").map(Number);
     const [endH, endM] = formData.endTime.split(":").map(Number);
-    const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM) - formData.pauseMinutes;
+    let totalMinutes = (endH * 60 + endM) - (startH * 60 + startM) - formData.pauseMinutes;
+    if (hasLunchBreak) totalMinutes -= LUNCH_BREAK_MINUTES;
     return Math.max(0, totalMinutes / 60);
   };
 
@@ -207,6 +259,8 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       beschreibung: formData.beschreibung.trim(),
       notizen: formData.notizen.trim() || null,
       project_id: selectedProjectId || null,
+      has_breakfast_break: hasBreakfastBreak,
+      has_lunch_break: hasLunchBreak,
     };
 
     if (editData) {
@@ -216,7 +270,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         .eq("id", editData.id);
 
       if (error) {
-        toast({ variant: "destructive", title: "Fehler", description: "Regiebericht konnte nicht aktualisiert werden" });
+        toast({ variant: "destructive", title: "Fehler", description: "Arbeitsbericht konnte nicht aktualisiert werden" });
         setSaving(false);
         return;
       }
@@ -227,7 +281,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       // Update time entries: delete old ones and recreate
       await createTimeEntriesForDisturbance(editData.id, user.id, stunden, disturbanceData);
 
-      toast({ title: "Erfolg", description: "Regiebericht wurde aktualisiert" });
+      toast({ title: "Erfolg", description: "Arbeitsbericht wurde aktualisiert" });
     } else {
       const { data: newDisturbance, error } = await supabase
         .from("disturbances")
@@ -236,7 +290,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         .single();
 
       if (error) {
-        toast({ variant: "destructive", title: "Fehler", description: "Regiebericht konnte nicht erstellt werden" });
+        toast({ variant: "destructive", title: "Fehler", description: "Arbeitsbericht konnte nicht erstellt werden" });
         setSaving(false);
         return;
       }
@@ -273,7 +327,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       // Create time entries for creator and team
       await createTimeEntriesForDisturbance(newDisturbance.id, user.id, stunden, disturbanceData);
 
-      toast({ title: "Erfolg", description: "Regiebericht wurde erfasst" });
+      toast({ title: "Erfolg", description: "Arbeitsbericht wurde erfasst" });
 
       setSaving(false);
       onOpenChange(false);
@@ -289,7 +343,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     disturbanceId: string,
     userId: string,
     stunden: number,
-    data: { datum: string; start_time: string; end_time: string; pause_minutes: number }
+    data: { datum: string; start_time: string; end_time: string; pause_minutes: number; has_breakfast_break?: boolean; has_lunch_break?: boolean }
   ) => {
     // Delete existing time entries linked to this disturbance
     await supabase
@@ -329,6 +383,8 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       location_type: "regie",
       notizen: null,
       week_type: null,
+      has_breakfast_break: data.has_breakfast_break || false,
+      has_lunch_break: data.has_lunch_break || false,
     };
 
     const teamEntries = selectedEmployees.map((workerId) => ({
@@ -346,6 +402,8 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       location_type: "regie",
       notizen: null,
       week_type: null,
+      has_breakfast_break: data.has_breakfast_break || false,
+      has_lunch_break: data.has_lunch_break || false,
     }));
 
     const { error } = await supabase.functions.invoke("create-team-time-entries", {
@@ -419,7 +477,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            {editData ? "Regiebericht bearbeiten" : "Neuen Regiebericht erfassen"}
+            {editData ? "Arbeitsbericht bearbeiten" : "Neuen Arbeitsbericht erfassen"}
           </DialogTitle>
           <DialogDescription>
             Erfassen Sie einen Service-Einsatz beim Kunden. Die Arbeitszeit wird automatisch für den Ersteller und alle ausgewählten Mitarbeiter gebucht.
@@ -428,6 +486,85 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
 
         <div className="flex-1 overflow-y-auto pr-1">
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Work Type Selection */}
+          <div className="space-y-3">
+            <h3 className="font-medium flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Art der Arbeit
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkType("projekt");
+                  if (!selectedProjectId) {
+                    // Clear project-related state
+                  }
+                }}
+                className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                  workType === "projekt"
+                    ? "border-primary bg-primary/5"
+                    : "border-muted hover:border-muted-foreground/30"
+                }`}
+              >
+                <div className="font-medium text-sm">Projekt-Arbeit</div>
+                <p className="text-xs text-muted-foreground mt-1">Bestehendes Projekt</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkType("kunde");
+                  setSelectedProjectId(null);
+                }}
+                className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                  workType === "kunde"
+                    ? "border-primary bg-primary/5"
+                    : "border-muted hover:border-muted-foreground/30"
+                }`}
+              >
+                <div className="font-medium text-sm">Kunden-Arbeit</div>
+                <p className="text-xs text-muted-foreground mt-1">Einzelkunde ohne Projekt</p>
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {workType === "projekt"
+                ? "Wählen Sie ein bestehendes Projekt - Kundendaten werden automatisch übernommen."
+                : "Arbeit für einen einzelnen Kunden ohne Projektbezug."}
+            </p>
+          </div>
+
+          {/* Project Selection (only for Projekt-Arbeit) */}
+          {workType === "projekt" && (
+            <div className="space-y-4">
+              <h3 className="font-medium flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" />
+                Projekt auswählen
+              </h3>
+              <Select
+                value={selectedProjectId || "none"}
+                onValueChange={(val) => {
+                  const projectId = val === "none" ? null : val;
+                  setSelectedProjectId(projectId);
+                  if (projectId) {
+                    fetchProjectCustomerData(projectId);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Projekt auswählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Kein Projekt</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.plz})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium flex items-center gap-2">
@@ -473,10 +610,10 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                         // Auto-calculate start/end from 07:00
                         const startMinutes = 7 * 60;
                         let endMinutes = startMinutes + hours * 60;
-                        
+
                         // Regie: keine automatische Mittagspause
                         const pauseMinutes = 0;
-                        
+
                         const endH = Math.floor(endMinutes / 60);
                         const endM = Math.round(endMinutes % 60);
                         setFormData({
@@ -535,6 +672,40 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 </div>
               </div>
             </div>
+
+            {/* Break Checkboxes */}
+            {!directHoursMode && (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="breakfastBreak"
+                    checked={hasBreakfastBreak}
+                    onCheckedChange={(checked) => setHasBreakfastBreak(checked === true)}
+                    disabled={breakfastTaken}
+                  />
+                  <Label htmlFor="breakfastBreak" className="text-sm font-normal cursor-pointer">
+                    Vormittagspause ({BREAKFAST_BREAK_START}–{BREAKFAST_BREAK_END})
+                    {breakfastTaken && (
+                      <span className="text-xs text-muted-foreground ml-1">(bereits eingetragen)</span>
+                    )}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="lunchBreak"
+                    checked={hasLunchBreak}
+                    onCheckedChange={(checked) => setHasLunchBreak(checked === true)}
+                    disabled={lunchTaken}
+                  />
+                  <Label htmlFor="lunchBreak" className="text-sm font-normal cursor-pointer">
+                    Mittagspause ({LUNCH_BREAK_START}–{LUNCH_BREAK_END})
+                    {lunchTaken && (
+                      <span className="text-xs text-muted-foreground ml-1">(bereits eingetragen)</span>
+                    )}
+                  </Label>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Customer Section */}
@@ -542,6 +713,9 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             <h3 className="font-medium flex items-center gap-2">
               <User className="h-4 w-4" />
               Kundendaten
+              {workType === "projekt" && selectedProjectId && (
+                <span className="text-xs font-normal text-muted-foreground">(aus Projekt übernommen)</span>
+              )}
             </h3>
             <div className="space-y-3">
               <div>
@@ -606,30 +780,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             startTime={formData.startTime}
             endTime={formData.endTime}
           />
-
-          {/* Project Assignment */}
-          <div className="space-y-4">
-            <h3 className="font-medium flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Projekt zuordnen (optional)
-            </h3>
-            <Select
-              value={selectedProjectId || "none"}
-              onValueChange={(val) => setSelectedProjectId(val === "none" ? null : val)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Kein Projekt" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Kein Projekt</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.plz})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Work Description Section */}
           <div className="space-y-4">
@@ -718,7 +868,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             const form = document.querySelector('form');
             if (form) form.requestSubmit();
           }} disabled={saving}>
-            {saving ? "Speichern..." : editData ? "Aktualisieren" : "Regiebericht erfassen"}
+            {saving ? "Speichern..." : editData ? "Aktualisieren" : "Arbeitsbericht erfassen"}
           </Button>
         </div>
       </DialogContent>

@@ -117,9 +117,9 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="/epower-logo.png" alt="ePower GmbH" className="h-16 mx-auto mb-4" />
-          <CardTitle>ePower GmbH</CardTitle>
-          <CardDescription>Baustellendokumentation</CardDescription>
+          <img src="/fasching-logo.jpg" alt="FASCHING Gebäudetechnik" className="h-16 mx-auto mb-4" />
+          <CardTitle>FASCHING Gebäudetechnik</CardTitle>
+          <CardDescription>Heizung - Kälte - Lüftung - Sanitär - Service</CardDescription>
         </CardHeader>
         <CardContent>
           {showPasswordReset ? (

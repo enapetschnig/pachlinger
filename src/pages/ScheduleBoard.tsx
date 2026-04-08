@@ -139,7 +139,7 @@ export default function ScheduleBoard() {
 
     // Sync to Google Calendar (fire and forget)
     if (assignmentId) {
-      const sbUrl = "https://xyhgckqxowqnzjtoblfs.supabase.co";
+      const sbUrl = "https://tomvlelicqsfkxzppgrc.supabase.co";
       fetch(`${sbUrl}/functions/v1/sync-assignment-to-calendar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,7 +158,7 @@ export default function ScheduleBoard() {
     if (!existing) return;
 
     // Delete from Google Calendar first (fire and forget)
-    const sbUrl = (supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL || "https://xyhgckqxowqnzjtoblfs.supabase.co";
+    const sbUrl = (supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL || "https://tomvlelicqsfkxzppgrc.supabase.co";
     fetch(`${sbUrl}/functions/v1/sync-assignment-to-calendar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

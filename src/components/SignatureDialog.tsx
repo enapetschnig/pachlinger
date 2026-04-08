@@ -184,7 +184,7 @@ export const SignatureDialog = ({
         });
       } else {
         toast({
-          title: "Regiebericht gesendet",
+          title: "Arbeitsbericht gesendet",
           description: "Der Bericht wurde erfolgreich per E-Mail versendet.",
         });
       }
@@ -209,7 +209,7 @@ export const SignatureDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Regiebericht zur Unterschrift
+            Arbeitsbericht zur Unterschrift
           </DialogTitle>
           <DialogDescription>
             Bitte lassen Sie den Kunden unterschreiben und senden Sie dann den Bericht.
@@ -359,7 +359,7 @@ export const SignatureDialog = ({
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                Regiebericht senden
+                Arbeitsbericht senden
               </>
             )}
           </Button>

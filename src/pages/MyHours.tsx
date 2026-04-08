@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { getTotalWorkingHours } from "@/lib/workingHours";
+import { getTotalWorkingHours, calculateDailyOvertime, DAILY_WORK_HOURS, calculateHoursFromTimes, LUNCH_BREAK_MINUTES, LUNCH_BREAK_START, LUNCH_BREAK_END } from "@/lib/workingHours";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/PageHeader";
 
 const ABSENCE_TYPES = ["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch", "Zeitausgleich"];
@@ -23,6 +24,8 @@ type TimeEntry = {
   start_time: string | null;
   end_time: string | null;
   pause_minutes: number | null;
+  has_breakfast_break: boolean;
+  has_lunch_break: boolean;
   location_type: string;
   notizen: string | null;
   projects: { name: string; plz: string } | null;
@@ -80,18 +83,26 @@ const MyHours = () => {
     if (!user) return;
 
     // Fetch all data in parallel
-    const [zaAdj, vacAdj, zaUsed, vacUsed, fridayEntries] = await Promise.all([
+    const [zaAdj, vacAdj, zaUsed, vacUsed, workEntries] = await Promise.all([
       supabase.from("za_adjustments").select("hours").eq("user_id", user.id),
       supabase.from("vacation_adjustments").select("days").eq("user_id", user.id),
       supabase.from("time_entries").select("stunden").eq("user_id", user.id).eq("taetigkeit", "Zeitausgleich"),
       supabase.from("time_entries").select("datum").eq("user_id", user.id).eq("taetigkeit", "Urlaub"),
-      supabase.from("time_entries").select("datum").eq("user_id", user.id).neq("taetigkeit", "Urlaub").neq("taetigkeit", "Krankenstand").neq("taetigkeit", "Zeitausgleich").neq("taetigkeit", "Weiterbildung").neq("taetigkeit", "Arztbesuch"),
+      supabase.from("time_entries").select("datum, stunden").eq("user_id", user.id).neq("taetigkeit", "Urlaub").neq("taetigkeit", "Krankenstand").neq("taetigkeit", "Zeitausgleich").neq("taetigkeit", "Weiterbildung").neq("taetigkeit", "Arztbesuch"),
     ]);
 
-    // ZA: Freitags-Bonus
-    const fridayCount = (fridayEntries.data || []).filter(e => new Date(e.datum).getDay() === 5).length;
-    const uniqueFridays = new Set((fridayEntries.data || []).filter(e => new Date(e.datum).getDay() === 5).map(e => e.datum));
-    const earned = uniqueFridays.size * 0.5;
+    // ZA: sum of daily overtime (hours worked beyond 9.625h/day)
+    // Group work entries by date and sum hours per day
+    const dailyHours = new Map<string, number>();
+    for (const entry of (workEntries.data || [])) {
+      const current = dailyHours.get(entry.datum) || 0;
+      dailyHours.set(entry.datum, current + Number(entry.stunden));
+    }
+    let earned = 0;
+    dailyHours.forEach((hours, datum) => {
+      const date = new Date(datum + 'T00:00:00');
+      earned += calculateDailyOvertime(date, hours);
+    });
     const adjustments = (zaAdj.data || []).reduce((s, r) => s + Number(r.hours), 0);
     const zaUsedHours = (zaUsed.data || []).reduce((s, r) => s + Number(r.stunden), 0);
     setZaSaldo({ earned, adjustments, used: zaUsedHours, balance: earned + adjustments - zaUsedHours });
@@ -203,29 +214,10 @@ const MyHours = () => {
       return;
     }
 
-    // Regular entry: calculate hours from times
-    const morningStart = editingEntry.start_time ? new Date(`2000-01-01T${editingEntry.start_time}`) : null;
-    const morningEndTime = "12:00";
-    const morningEnd = new Date(`2000-01-01T${morningEndTime}`);
-    
-    let calculatedHours = 0;
-    
-    if (morningStart) {
-      const morningMs = morningEnd.getTime() - morningStart.getTime();
-      const morningMinutes = morningMs / (1000 * 60);
-      calculatedHours += morningMinutes / 60;
-      
-      if (editingEntry.end_time) {
-        const afternoonEnd = new Date(`2000-01-01T${editingEntry.end_time}`);
-        const pauseMinutes = editingEntry.pause_minutes || 0;
-        const afternoonStartTime = new Date(morningEnd.getTime() + pauseMinutes * 60 * 1000);
-        const afternoonMs = afternoonEnd.getTime() - afternoonStartTime.getTime();
-        const afternoonMinutes = Math.max(0, afternoonMs / (1000 * 60));
-        calculatedHours += afternoonMinutes / 60;
-      }
-    }
-
-    const finalHours = Math.max(0, calculatedHours);
+    // Regular entry: calculate hours from Von-Bis times
+    const finalHours = (editingEntry.start_time && editingEntry.end_time)
+      ? calculateHoursFromTimes(editingEntry.start_time, editingEntry.end_time, editingEntry.has_lunch_break)
+      : 0;
     const validation = await validateDayHours(editingEntry.id, editingEntry.datum, finalHours);
 
     const { error } = await supabase
@@ -234,7 +226,9 @@ const MyHours = () => {
         taetigkeit: editingEntry.taetigkeit,
         start_time: editingEntry.start_time,
         end_time: editingEntry.end_time,
-        pause_minutes: editingEntry.pause_minutes || 0,
+        pause_minutes: editingEntry.has_lunch_break ? LUNCH_BREAK_MINUTES : 0,
+        has_breakfast_break: editingEntry.has_breakfast_break,
+        has_lunch_break: editingEntry.has_lunch_break,
         notizen: editingEntry.notizen,
         stunden: finalHours,
       })
@@ -285,6 +279,63 @@ const MyHours = () => {
       <PageHeader title="Meine Stunden" backPath="/" />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl">
+        {/* ZA & Urlaubssaldo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Timer className="h-5 w-5" />
+                Zeitausgleich (ZA)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Angesammelt (Überstunden)</span>
+                <span className="text-green-600">+{zaSaldo.earned.toFixed(1)} h</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Korrekturen</span>
+                <span className={zaSaldo.adjustments >= 0 ? "text-green-600" : "text-destructive"}>{zaSaldo.adjustments >= 0 ? '+' : ''}{zaSaldo.adjustments.toFixed(1)} h</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Verbraucht</span>
+                <span className="text-destructive">−{zaSaldo.used.toFixed(1)} h</span>
+              </div>
+              <div className="border-t pt-2 flex justify-between font-semibold">
+                <span>Saldo</span>
+                <span className={zaSaldo.balance >= 0 ? "text-green-600" : "text-destructive"}>
+                  {zaSaldo.balance >= 0 ? '+' : ''}{zaSaldo.balance.toFixed(1)} h
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-5 w-5" />
+                Urlaubskonto
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Guthaben</span>
+                <span>{vacationSaldo.granted.toFixed(0)} Tage</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Verbraucht</span>
+                <span className="text-destructive">−{vacationSaldo.used} Tage</span>
+              </div>
+              <div className="border-t pt-2 flex justify-between font-semibold">
+                <span>Saldo</span>
+                <span className={vacationSaldo.balance >= 0 ? "text-green-600" : "text-destructive"}>
+                  {vacationSaldo.balance.toFixed(0)} Tage
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -304,9 +355,12 @@ const MyHours = () => {
                   className="w-44"
                 />
               </div>
-              <div className="text-sm sm:text-base">
-                <span className="text-muted-foreground">Gesamt: </span>
-                <span className="font-bold text-lg text-primary">{totalHours.toFixed(2)} Std.</span>
+              <div className="text-sm sm:text-base flex flex-col items-end gap-1">
+                <div>
+                  <span className="text-muted-foreground">Gesamt: </span>
+                  <span className="font-bold text-lg text-primary">{totalHours.toFixed(2)} Std.</span>
+                </div>
+                <span className="text-xs text-muted-foreground">MO-DO: 9,625h / Tag</span>
               </div>
             </div>
 
@@ -363,7 +417,7 @@ const MyHours = () => {
                               ) : entry.location_type === 'regie' ? (
                                 <>
                                   <Building2 className="w-4 h-4 text-muted-foreground" />
-                                  <span>Regie</span>
+                                  <span>Arbeitsbericht</span>
                                 </>
                               ) : (
                                 <>
@@ -374,7 +428,7 @@ const MyHours = () => {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>{isAbsenceEntry(entry) ? '-' : (entry.location_type === 'regie' ? 'Regie' : (entry.projects?.name || '-'))}</TableCell>
+                        <TableCell>{isAbsenceEntry(entry) ? '-' : (entry.location_type === 'regie' ? 'Arbeitsbericht' : (entry.projects?.name || '-'))}</TableCell>
                         <TableCell>{entry.taetigkeit}</TableCell>
                         <TableCell className="text-center">
                           {isAbsenceEntry(entry) ? '-' : (entry.start_time?.substring(0, 5) || '-')}
@@ -431,62 +485,6 @@ const MyHours = () => {
           </CardContent>
         </Card>
 
-        {/* ZA & Urlaubssaldo */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Timer className="h-5 w-5" />
-                Zeitausgleich (ZA)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Angesammelt (Freitage)</span>
-                <span>+{zaSaldo.earned.toFixed(1)} h</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Korrekturen</span>
-                <span>{zaSaldo.adjustments >= 0 ? '+' : ''}{zaSaldo.adjustments.toFixed(1)} h</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Verbraucht</span>
-                <span>−{zaSaldo.used.toFixed(1)} h</span>
-              </div>
-              <div className="border-t pt-2 flex justify-between font-semibold">
-                <span>Saldo</span>
-                <span className={zaSaldo.balance >= 0 ? "text-green-600" : "text-destructive"}>
-                  {zaSaldo.balance >= 0 ? '+' : ''}{zaSaldo.balance.toFixed(1)} h
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Calendar className="h-5 w-5" />
-                Urlaubskonto
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Guthaben</span>
-                <span>{vacationSaldo.granted.toFixed(0)} Tage</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Verbraucht</span>
-                <span>−{vacationSaldo.used} Tage</span>
-              </div>
-              <div className="border-t pt-2 flex justify-between font-semibold">
-                <span>Saldo</span>
-                <span className={vacationSaldo.balance >= 0 ? "text-green-600" : "text-destructive"}>
-                  {vacationSaldo.balance.toFixed(0)} Tage
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </main>
 
       {/* Edit Dialog */}
@@ -570,91 +568,95 @@ const MyHours = () => {
                 />
               </div>
 
-              {/* Vormittag */}
+              {/* Von-Bis Arbeitszeit */}
               <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-                <h3 className="font-semibold text-sm">Vormittag</h3>
+                <h3 className="font-semibold text-sm">Arbeitszeit (Von - Bis)</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="edit-morning-start">Beginn</Label>
+                    <Label htmlFor="edit-start-time">Von</Label>
                     <Input
-                      id="edit-morning-start"
+                      id="edit-start-time"
                       type="time"
-                      value={editingEntry.start_time || '07:30'}
+                      value={editingEntry.start_time || '07:00'}
                       onChange={(e) => setEditingEntry({...editingEntry, start_time: e.target.value})}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="edit-morning-end">Ende</Label>
+                    <Label htmlFor="edit-end-time">Bis</Label>
                     <Input
-                      id="edit-morning-end"
-                      type="time"
-                      value="12:00"
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Unterbrechung */}
-              <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-                <h3 className="font-semibold text-sm">Unterbrechung</h3>
-                <div>
-                  <Label htmlFor="edit-pause">Dauer (Minuten)</Label>
-                  <Input
-                    id="edit-pause"
-                    type="number"
-                    min="0"
-                    value={editingEntry.pause_minutes || 0}
-                    onChange={(e) => setEditingEntry({...editingEntry, pause_minutes: parseInt(e.target.value) || 0})}
-                  />
-                </div>
-              </div>
-
-              {/* Nachmittag */}
-              <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-                <h3 className="font-semibold text-sm">Nachmittag</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-afternoon-start">Beginn</Label>
-                    <Input
-                      id="edit-afternoon-start"
-                      type="time"
-                      value={(() => {
-                        const dayOfWeek = new Date(editingEntry.datum).getDay();
-                        const isFriday = dayOfWeek === 5;
-                        const morningEnd = isFriday ? "12:30" : "12:00";
-                        const [hours, minutes] = morningEnd.split(':').map(Number);
-                        const pauseMinutes = editingEntry.pause_minutes || 0;
-                        const totalMinutes = hours * 60 + minutes + pauseMinutes;
-                        return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
-                      })()}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-afternoon-end">Ende</Label>
-                    <Input
-                      id="edit-afternoon-end"
+                      id="edit-end-time"
                       type="time"
                       value={editingEntry.end_time || ''}
                       onChange={(e) => setEditingEntry({...editingEntry, end_time: e.target.value})}
                     />
                   </div>
                 </div>
-                {new Date(editingEntry.datum).getDay() === 5 && (
-                  <p className="text-xs text-muted-foreground">
-                    Freitags ist die Normalarbeitszeit 7:30-12:30 Uhr. Nachmittag nur bei Überstunden.
+              </div>
+
+              {/* Pausen */}
+              <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+                <h3 className="font-semibold text-sm">Pausen</h3>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-breakfast-break"
+                    checked={editingEntry.has_breakfast_break}
+                    onCheckedChange={(checked) => setEditingEntry({...editingEntry, has_breakfast_break: !!checked})}
+                  />
+                  <Label htmlFor="edit-breakfast-break" className="text-sm">
+                    Vormittagspause (09:00-09:15) - zählt als Arbeitszeit
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-lunch-break"
+                    checked={editingEntry.has_lunch_break}
+                    onCheckedChange={(checked) => {
+                      const hasLunch = !!checked;
+                      setEditingEntry({
+                        ...editingEntry,
+                        has_lunch_break: hasLunch,
+                        pause_minutes: hasLunch ? LUNCH_BREAK_MINUTES : 0,
+                      });
+                    }}
+                  />
+                  <Label htmlFor="edit-lunch-break" className="text-sm">
+                    Mittagspause (12:00-12:30) - wird abgezogen
+                  </Label>
+                </div>
+                {editingEntry.has_lunch_break && (
+                  <p className="text-xs text-muted-foreground ml-6">
+                    Pause: {LUNCH_BREAK_START} - {LUNCH_BREAK_END} ({LUNCH_BREAK_MINUTES} Min.)
                   </p>
                 )}
+              </div>
+
+              {/* Berechnete Stunden Vorschau */}
+              <div className="p-3 rounded-lg bg-primary/5 border">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Berechnete Stunden:</span>
+                  <span className="font-semibold">
+                    {editingEntry.start_time && editingEntry.end_time
+                      ? calculateHoursFromTimes(editingEntry.start_time, editingEntry.end_time, editingEntry.has_lunch_break).toFixed(2)
+                      : '0.00'} h
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-notizen">Notizen</Label>
+                <Input
+                  id="edit-notizen"
+                  value={editingEntry.notizen || ''}
+                  onChange={(e) => setEditingEntry({...editingEntry, notizen: e.target.value || null})}
+                  placeholder="Optionale Notizen"
+                />
               </div>
 
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleUpdateEntry} className="flex-1" disabled={savingEdit}>
                   {savingEdit ? 'Wird gespeichert...' : 'Speichern'}
                 </Button>
-                <Button 
+                <Button
                   variant="destructive"
                   onClick={() => editingEntry && handleDeleteEntry(editingEntry.id)}
                   className="flex-1"

@@ -146,6 +146,8 @@ export type Database = {
           created_at: string
           datum: string
           end_time: string
+          has_breakfast_break: boolean
+          has_lunch_break: boolean
           id: string
           is_verrechnet: boolean
           kunde_adresse: string | null
@@ -169,6 +171,8 @@ export type Database = {
           created_at?: string
           datum: string
           end_time: string
+          has_breakfast_break?: boolean
+          has_lunch_break?: boolean
           id?: string
           is_verrechnet?: boolean
           kunde_adresse?: string | null
@@ -192,6 +196,8 @@ export type Database = {
           created_at?: string
           datum?: string
           end_time?: string
+          has_breakfast_break?: boolean
+          has_lunch_break?: boolean
           id?: string
           is_verrechnet?: boolean
           kunde_adresse?: string | null
@@ -279,6 +285,8 @@ export type Database = {
           telefon: string | null
           updated_at: string | null
           user_id: string | null
+          vacation_credit_month: number | null
+          vacation_days_per_year: number | null
           vorname: string
         }
         Insert: {
@@ -306,6 +314,8 @@ export type Database = {
           telefon?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vacation_credit_month?: number | null
+          vacation_days_per_year?: number | null
           vorname: string
         }
         Update: {
@@ -501,6 +511,9 @@ export type Database = {
           beschreibung: string | null
           created_at: string
           id: string
+          kunde_email: string | null
+          kunde_name: string | null
+          kunde_telefon: string | null
           name: string
           plz: string
           status: string | null
@@ -511,6 +524,9 @@ export type Database = {
           beschreibung?: string | null
           created_at?: string
           id?: string
+          kunde_email?: string | null
+          kunde_name?: string | null
+          kunde_telefon?: string | null
           name: string
           plz: string
           status?: string | null
@@ -521,6 +537,9 @@ export type Database = {
           beschreibung?: string | null
           created_at?: string
           id?: string
+          kunde_email?: string | null
+          kunde_name?: string | null
+          kunde_telefon?: string | null
           name?: string
           plz?: string
           status?: string | null
@@ -578,6 +597,8 @@ export type Database = {
           datum: string
           disturbance_id: string | null
           end_time: string
+          has_breakfast_break: boolean
+          has_lunch_break: boolean
           id: string
           location_type: string | null
           notizen: string | null
@@ -597,6 +618,8 @@ export type Database = {
           datum: string
           disturbance_id?: string | null
           end_time: string
+          has_breakfast_break?: boolean
+          has_lunch_break?: boolean
           id?: string
           location_type?: string | null
           notizen?: string | null
@@ -616,6 +639,8 @@ export type Database = {
           datum?: string
           disturbance_id?: string | null
           end_time?: string
+          has_breakfast_break?: boolean
+          has_lunch_break?: boolean
           id?: string
           location_type?: string | null
           notizen?: string | null
@@ -773,6 +798,7 @@ export type Database = {
           days: number
           id: string
           reason: string
+          source: string
           user_id: string
         }
         Insert: {
@@ -781,6 +807,7 @@ export type Database = {
           days: number
           id?: string
           reason: string
+          source?: string
           user_id: string
         }
         Update: {
@@ -789,6 +816,7 @@ export type Database = {
           days?: number
           id?: string
           reason?: string
+          source?: string
           user_id?: string
         }
         Relationships: []

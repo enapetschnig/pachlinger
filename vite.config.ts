@@ -17,10 +17,10 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'ePower GmbH',
-        short_name: 'ePower',
+        name: 'FASCHING Gebäudetechnik',
+        short_name: 'FASCHING',
         description: 'Baustellendokumentation und Zeiterfassung',
-        theme_color: '#1e40af',
+        theme_color: '#2563a8',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',

@@ -112,7 +112,7 @@ const DisturbanceDetail = () => {
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: "Regiebericht konnte nicht geladen werden",
+        description: "Arbeitsbericht konnte nicht geladen werden",
       });
       navigate("/disturbances");
     } else {
@@ -214,12 +214,12 @@ const DisturbanceDetail = () => {
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: "Regiebericht konnte nicht gelöscht werden",
+        description: "Arbeitsbericht konnte nicht gelöscht werden",
       });
     } else {
       toast({
         title: "Erfolg",
-        description: "Regiebericht wurde gelöscht",
+        description: "Arbeitsbericht wurde gelöscht",
       });
       navigate("/disturbances");
     }
@@ -305,9 +305,9 @@ const DisturbanceDetail = () => {
   if (!disturbance) {
     return (
       <div className="min-h-screen bg-background">
-        <PageHeader title="Regiebericht nicht gefunden" backPath="/disturbances" />
+        <PageHeader title="Arbeitsbericht nicht gefunden" backPath="/disturbances" />
         <main className="container mx-auto px-4 py-6 text-center">
-          <p>Der angeforderte Regiebericht konnte nicht gefunden werden.</p>
+          <p>Der angeforderte Arbeitsbericht konnte nicht gefunden werden.</p>
           <Button onClick={() => navigate("/disturbances")} className="mt-4">
             Zurück zur Übersicht
           </Button>
@@ -318,7 +318,7 @@ const DisturbanceDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Regiebericht Details" backPath="/disturbances" />
+      <PageHeader title="Arbeitsbericht Details" backPath="/disturbances" />
 
       <main className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
         {/* Header with status and actions */}
@@ -364,9 +364,9 @@ const DisturbanceDetail = () => {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Regiebericht löschen?</AlertDialogTitle>
+                      <AlertDialogTitle>Arbeitsbericht löschen?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Diese Aktion kann nicht rückgängig gemacht werden. Der Regiebericht und alle zugehörigen Materialien werden endgültig gelöscht.
+                        Diese Aktion kann nicht rückgängig gemacht werden. Der Arbeitsbericht und alle zugehörigen Materialien werden endgültig gelöscht.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

@@ -37,10 +37,10 @@ export function PageHeader({ title, showBackButton = true, backPath, showHomeBut
                 <span className="hidden sm:inline">Zurück</span>
               </Button>
             )}
-            <img 
-              src="/epower-logo.png"
-              alt="ePower GmbH" 
-              className="h-8 w-8 sm:h-10 sm:w-10 cursor-pointer hover:opacity-80 transition-opacity object-contain shrink-0" 
+            <img
+              src="/fasching-logo.jpg"
+              alt="FASCHING Gebäudetechnik"
+              className="h-8 sm:h-10 cursor-pointer hover:opacity-80 transition-opacity object-contain shrink-0"
               onClick={() => navigate("/")}
             />
             {title && (

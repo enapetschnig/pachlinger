@@ -119,14 +119,14 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
     doc.setFontSize(24);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 64, 175);
-    doc.text("ePOWER GMBH", margin, yPos);
+    doc.text("FASCHING GEBÄUDETECHNIK", margin, yPos);
     yPos += 8;
   }
 
   // Subtitle
   doc.setFontSize(16);
   doc.setTextColor(100, 100, 100);
-  doc.text("Regiebericht", margin, yPos);
+  doc.text("Arbeitsbericht", margin, yPos);
   yPos += 15;
 
   // Reset text color
@@ -360,7 +360,7 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
   const footerY = doc.internal.pageSize.getHeight() - 15;
-  doc.text(`Erstellt am: ${new Date().toLocaleDateString("de-AT")} | ePower GmbH`, margin, footerY);
+  doc.text(`Erstellt am: ${new Date().toLocaleDateString("de-AT")} | FASCHING Gebäudetechnik`, margin, footerY);
 
   // Return as base64
   return doc.output("datauristring").split(",")[1];
@@ -384,12 +384,12 @@ function generateEmailHtml(data: ReportRequest & { technicians: string[] }): str
     </head>
     <body>
       <div class="container">
-        <div class="header">ePOWER GMBH</div>
-        <h2>Regiebericht</h2>
+        <div class="header">FASCHING GEBÄUDETECHNIK</div>
+        <h2>Arbeitsbericht</h2>
         
         <p>Sehr geehrte Damen und Herren,</p>
         
-        <p>im Anhang finden Sie den Regiebericht für den Einsatz bei <strong>${disturbance.kunde_name}</strong> vom <strong>${formatDate(disturbance.datum)}</strong>.</p>
+        <p>im Anhang finden Sie den Arbeitsbericht für den Einsatz bei <strong>${disturbance.kunde_name}</strong> vom <strong>${formatDate(disturbance.datum)}</strong>.</p>
         
         <div class="info-box">
           <strong>Zusammenfassung:</strong><br>
@@ -401,7 +401,7 @@ function generateEmailHtml(data: ReportRequest & { technicians: string[] }): str
         <p>Der vollständige Bericht mit allen Details und der Kundenunterschrift befindet sich im angehängten PDF-Dokument.</p>
         
         <p>Mit freundlichen Grüßen,<br>
-        ePower GmbH</p>
+        FASCHING Gebäudetechnik</p>
       </div>
     </body>
     </html>
@@ -454,7 +454,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("key", "disturbance_report_email")
       .maybeSingle();
 
-    const officeEmail = setting?.value || "office@epower-gmbh.at";
+    const officeEmail = setting?.value || "office@fasching-gebaeudetechnik.at";
     console.log("Using office email:", officeEmail);
 
     // Prepare recipients - office email for all reports
@@ -466,14 +466,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Create filename
     const dateForFilename = formatDateShort(disturbance.datum).replace(/\./g, "-");
     const kundeForFilename = disturbance.kunde_name.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, "_");
-    const pdfFilename = `Regiebericht_${kundeForFilename}_${dateForFilename}.pdf`;
+    const pdfFilename = `Arbeitsbericht_${kundeForFilename}_${dateForFilename}.pdf`;
 
-    const subject = `Regiebericht - ${disturbance.kunde_name} - ${formatDateShort(disturbance.datum)}`;
+    const subject = `Arbeitsbericht - ${disturbance.kunde_name} - ${formatDateShort(disturbance.datum)}`;
 
     console.log("Sending email with PDF attachment to:", recipients);
 
     const emailResponse = await resend.emails.send({
-      from: "ePower GmbH <noreply@chrisnapetschnig.at>",
+      from: "FASCHING Gebäudetechnik <noreply@chrisnapetschnig.at>",
       to: recipients,
       subject: subject,
       html: emailHtml,

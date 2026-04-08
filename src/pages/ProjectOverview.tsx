@@ -40,7 +40,7 @@ const ProjectOverview = () => {
     },
     {
       type: "reports",
-      title: "Regieberichte",
+      title: "Arbeitsberichte",
       description: "Bautagebücher und Stundenberichte",
       icon: <FileCheck className="h-8 w-8" />,
       count: 0,
@@ -237,8 +237,8 @@ const ProjectOverview = () => {
                   </div>
                   <div className="text-2xl font-bold">{disturbanceCount}</div>
                 </div>
-                <CardTitle className="text-xl">Regieberichte</CardTitle>
-                <CardDescription>Zugeordnete Regieberichte für dieses Projekt</CardDescription>
+                <CardTitle className="text-xl">Arbeitsberichte</CardTitle>
+                <CardDescription>Zugeordnete Arbeitsberichte für dieses Projekt</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button variant="outline" className="w-full">

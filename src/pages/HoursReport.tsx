@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { calculateSuggestedStartTime, calculateWorkTimeRange, getNormalWorkingHours, timeToMinutes } from "@/lib/workingHours";
+import { calculateSuggestedStartTime, calculateWorkTimeRange, getNormalWorkingHours, timeToMinutes, isWorkingDay, DAILY_WORK_HOURS, calculateHoursFromTimes, LUNCH_BREAK_START, LUNCH_BREAK_END, LUNCH_BREAK_MINUTES, BREAKFAST_BREAK_START, BREAKFAST_BREAK_END } from "@/lib/workingHours";
 
 interface TimeEntry {
   id: string;
@@ -42,6 +42,8 @@ interface TimeEntry {
   taetigkeit: string;
   week_type?: string | null;
   disturbance_id?: string | null;
+  has_breakfast_break?: boolean;
+  has_lunch_break?: boolean;
 }
 
 interface Profile {
@@ -91,6 +93,18 @@ interface EditableTimeEntry {
   pause_start: string;
   pause_end: string;
   disturbanceIds: string[];
+  has_breakfast_break: boolean;
+  has_lunch_break: boolean;
+}
+
+interface EmployeeBalances {
+  zaEarned: number;
+  zaAdjustments: number;
+  zaUsed: number;
+  zaBalance: number;
+  vacationGranted: number;
+  vacationUsed: number;
+  vacationBalance: number;
 }
 
 const monthNames = [
@@ -220,8 +234,72 @@ export default function HoursReport() {
   const [entryToDelete, setEntryToDelete] = useState<TimeEntry | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
+  const [employeeBalances, setEmployeeBalances] = useState<EmployeeBalances | null>(null);
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
+  const fetchEmployeeBalances = async (userId: string) => {
+    try {
+      // ZA: Calculate from overtime
+      const { data: allEntries } = await supabase
+        .from("time_entries")
+        .select("datum, stunden, taetigkeit")
+        .eq("user_id", userId);
+
+      const { data: zaAdj } = await supabase
+        .from("za_adjustments")
+        .select("hours")
+        .eq("user_id", userId);
+
+      const { data: vacAdj } = await supabase
+        .from("vacation_adjustments")
+        .select("days")
+        .eq("user_id", userId);
+
+      let zaEarned = 0;
+      let zaUsed = 0;
+      let vacationUsed = 0;
+      const vacationDates = new Set<string>();
+
+      // Group entries by day for overtime calculation
+      const dayHours: Record<string, number> = {};
+      (allEntries || []).forEach((e) => {
+        if (e.taetigkeit === "Zeitausgleich") {
+          zaUsed += Number(e.stunden);
+        } else if (e.taetigkeit === "Urlaub") {
+          vacationDates.add(e.datum);
+        } else if (!["Krankenstand", "Weiterbildung", "Arztbesuch"].includes(e.taetigkeit || "")) {
+          dayHours[e.datum] = (dayHours[e.datum] || 0) + Number(e.stunden);
+        }
+      });
+
+      // Calculate overtime per day
+      Object.entries(dayHours).forEach(([datum, hours]) => {
+        const date = new Date(datum);
+        const target = getNormalWorkingHours(date);
+        if (hours > target && target > 0) {
+          zaEarned += hours - target;
+        } else if (target === 0 && hours > 0) {
+          zaEarned += hours; // Weekend/Friday work = all overtime
+        }
+      });
+
+      const zaAdjustments = (zaAdj || []).reduce((sum, a) => sum + Number(a.hours), 0);
+      const vacationGranted = (vacAdj || []).reduce((sum, a) => sum + Number(a.days), 0);
+
+      setEmployeeBalances({
+        zaEarned: Math.round(zaEarned * 100) / 100,
+        zaAdjustments,
+        zaUsed,
+        zaBalance: Math.round((zaEarned + zaAdjustments - zaUsed) * 100) / 100,
+        vacationGranted,
+        vacationUsed: vacationDates.size,
+        vacationBalance: vacationGranted - vacationDates.size,
+      });
+    } catch (err) {
+      console.error("Error fetching employee balances:", err);
+    }
+  };
 
   useEffect(() => {
     checkAdminStatus();
@@ -240,6 +318,7 @@ export default function HoursReport() {
   useEffect(() => {
     if (selectedUserId) {
       fetchTimeEntries();
+      fetchEmployeeBalances(selectedUserId);
     }
   }, [month, year, selectedUserId]);
 
@@ -341,7 +420,7 @@ export default function HoursReport() {
 
     if (error) {
       toast({
-        title: "Regieberichte konnten nicht geladen werden",
+        title: "Arbeitsberichte konnten nicht geladen werden",
         description: error.message,
         variant: "destructive",
       });
@@ -371,11 +450,13 @@ export default function HoursReport() {
       taetigkeit: entry.taetigkeit || "",
       location_type: entry.location_type || "baustelle",
       project_id: entry.project_id,
-      start_time: suggestedStart,
+      start_time: entry.start_time?.substring(0, 5) || suggestedStart,
       end_time: entry.end_time?.substring(0, 5) || "",
       pause_start: entry.pause_start?.substring(0, 5) || "",
       pause_end: entry.pause_end?.substring(0, 5) || "",
       disturbanceIds,
+      has_breakfast_break: entry.has_breakfast_break || false,
+      has_lunch_break: entry.has_lunch_break || false,
     });
     setIsEditDialogOpen(true);
   };
@@ -475,6 +556,10 @@ export default function HoursReport() {
       }
     }
 
+    const pauseMinutes = editingEntry.has_lunch_break ? LUNCH_BREAK_MINUTES : calculatedTimes.pauseMinutes;
+    const pauseStart = editingEntry.has_lunch_break ? LUNCH_BREAK_START : (calculatedTimes.pauseStart || null);
+    const pauseEnd = editingEntry.has_lunch_break ? LUNCH_BREAK_END : (calculatedTimes.pauseEnd || null);
+
     const { error: updateError } = await supabase
       .from("time_entries")
       .update({
@@ -485,9 +570,11 @@ export default function HoursReport() {
         disturbance_id: nextLocationType === "regie" ? (nextDisturbanceIds[0] ?? null) : null,
         start_time: calculatedTimes.startTime,
         end_time: calculatedTimes.endTime,
-        pause_minutes: calculatedTimes.pauseMinutes,
-        pause_start: calculatedTimes.pauseStart || null,
-        pause_end: calculatedTimes.pauseEnd || null,
+        pause_minutes: pauseMinutes,
+        pause_start: pauseStart,
+        pause_end: pauseEnd,
+        has_breakfast_break: editingEntry.has_breakfast_break,
+        has_lunch_break: editingEntry.has_lunch_break,
       })
       .eq("id", editingEntry.id);
 
@@ -508,7 +595,7 @@ export default function HoursReport() {
 
     if (deleteLinksError) {
       toast({
-        title: "Regie-Verknüpfungen konnten nicht aktualisiert werden",
+        title: "Arbeitsbericht-Verknüpfungen konnten nicht aktualisiert werden",
         description: deleteLinksError.message,
         variant: "destructive",
       });
@@ -526,7 +613,7 @@ export default function HoursReport() {
 
       if (insertLinksError) {
         toast({
-          title: "Regie-Verknüpfungen konnten nicht gespeichert werden",
+          title: "Arbeitsbericht-Verknüpfungen konnten nicht gespeichert werden",
           description: insertLinksError.message,
           variant: "destructive",
         });
@@ -719,7 +806,7 @@ export default function HoursReport() {
 
   const buildEmployeeWorksheetData = (includeOvertime: boolean) => {
     const worksheetData: (string | number)[][] = [
-      ["ePower GmbH", "", "", "", "", "", "", "", "", "", "", ""],
+      ["FASCHING Gebäudetechnik", "", "", "", "", "", "", "", "", "", "", ""],
       ["", "", "", "", "", "", "", "", "", "", "", ""],
       ["", "", "", "", "", "", "", "", "", "", "", ""],
       ["", "", "", "", "", "", "", "", "", "", "", ""],
@@ -759,9 +846,9 @@ export default function HoursReport() {
         const project = entry.project_id ? projects[entry.project_id] : undefined;
         const isAbsence = isAbsenceType(entry.taetigkeit);
         const isRegie = entry.location_type === "regie" || entry.disturbance_id != null;
-        const ortText = isRegie ? "Regie" : entry.location_type === "baustelle" ? "Baustelle" : entry.location_type === "werkstatt" ? "Werkstatt" : "";
+        const ortText = isRegie ? "Arbeitsbericht" : entry.location_type === "baustelle" ? "Baustelle" : entry.location_type === "werkstatt" ? "Werkstatt" : "";
         const kundeName = (entry as any).disturbances?.kunde_name;
-        const regieLabel = kundeName ? `Regie: ${kundeName}` : "Regie";
+        const regieLabel = kundeName ? `Arbeitsbericht: ${kundeName}` : "Arbeitsbericht";
         const projektName = isAbsence ? entry.taetigkeit : isRegie ? (project ? `${regieLabel} · ${project.name}` : regieLabel) : project?.name || "";
         const plz = isAbsence ? "" : isRegie ? (project?.plz || "") : entry.location_type === "baustelle" ? project?.plz || "" : "";
         const displayDay = entryIndex === 0 ? day : "";
@@ -1157,6 +1244,32 @@ export default function HoursReport() {
                   </Select>
                 </div>
 
+                {selectedUserId && employeeBalances && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">ZA-Saldo</p>
+                      <p className={`text-xl font-bold ${employeeBalances.zaBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {employeeBalances.zaBalance >= 0 ? "+" : ""}{employeeBalances.zaBalance.toFixed(1)}h
+                      </p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Urlaub übrig</p>
+                      <p className={`text-xl font-bold ${employeeBalances.vacationBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {employeeBalances.vacationBalance} Tage
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{employeeBalances.vacationUsed} von {employeeBalances.vacationGranted} verbraucht</p>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">ZA erarbeitet</p>
+                      <p className="text-xl font-bold text-foreground">+{employeeBalances.zaEarned.toFixed(1)}h</p>
+                    </div>
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                      <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">ZA genommen</p>
+                      <p className="text-xl font-bold text-foreground">-{employeeBalances.zaUsed.toFixed(1)}h</p>
+                    </div>
+                  </div>
+                )}
+
                 {selectedUserId && (
                   <>
                     <div className="bg-muted/50 p-4 rounded-lg">
@@ -1232,9 +1345,9 @@ export default function HoursReport() {
                                 const project = entry.project_id ? projects[entry.project_id] : undefined;
                                 const isRegie = entry.location_type === "regie" || entry.disturbance_id != null;
                                 const ortIcon = isRegie ? "🧾" : entry.location_type === "baustelle" ? "🏗️" : entry.location_type === "werkstatt" ? "🔧" : "";
-                                const ortText = isRegie ? "Regie" : entry.location_type === "baustelle" ? "Baustelle" : entry.location_type === "werkstatt" ? "Werkstatt" : "";
+                                const ortText = isRegie ? "Arbeitsbericht" : entry.location_type === "baustelle" ? "Baustelle" : entry.location_type === "werkstatt" ? "Werkstatt" : "";
                                 const kundeName = (entry as any).disturbances?.kunde_name;
-                                const regieLabel = kundeName ? `Regie: ${kundeName}` : "Regie";
+                                const regieLabel = kundeName ? `Arbeitsbericht: ${kundeName}` : "Arbeitsbericht";
                                 const projektName = isAbsenceType(entry.taetigkeit)
                                   ? entry.taetigkeit
                                   : isRegie ? (project ? `${regieLabel} · ${project.name}` : regieLabel) : project?.name || "";
@@ -1420,7 +1533,7 @@ export default function HoursReport() {
                       <SelectContent>
                         <SelectItem value="baustelle">Baustelle</SelectItem>
                         <SelectItem value="werkstatt">Werkstatt</SelectItem>
-                        <SelectItem value="regie">Regie</SelectItem>
+                        <SelectItem value="regie">Arbeitsbericht</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

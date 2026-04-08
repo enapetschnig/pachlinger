@@ -4,10 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, FolderKanban, Users, BarChart3, LogOut, FileText, Camera, ArrowRight, Info, User as UserIcon, Zap, CalendarDays, MessageCircle, MapPin, StickyNote, Calendar as CalendarIcon } from "lucide-react";
+import { Clock, FolderKanban, Users, BarChart3, LogOut, FileText, Camera, ArrowRight, Info, User as UserIcon, Zap, CalendarDays, MapPin, StickyNote, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { WhatsAppStatus } from "@/components/WhatsAppStatus";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -259,7 +258,7 @@ export default function Index() {
         <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
           <div className="flex justify-between items-center gap-3">
             <div className="flex items-center gap-2 sm:gap-3">
-              <img src="/epower-logo.png" alt="ePower GmbH" className="h-8 sm:h-10 w-auto" />
+              <img src="/fasching-logo.jpg" alt="FASCHING Gebäudetechnik" className="h-8 sm:h-10 w-auto" />
               <div className="hidden sm:block h-8 w-px bg-border" />
               <div className="flex flex-col">
                 <span className="text-xs sm:text-sm text-muted-foreground">Hallo</span>
@@ -406,7 +405,7 @@ export default function Index() {
             </CardContent>
           </Card>
 
-          {/* 2. Regiearbeiten */}
+          {/* 2. Arbeitsberichte */}
           <Card 
             className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50" 
             onClick={() => navigate("/disturbances")}
@@ -415,13 +414,13 @@ export default function Index() {
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Zap className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className="text-lg sm:text-xl">Regiearbeiten</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Arbeitsberichte</CardTitle>
               <CardDescription className="text-sm">
                 Service-Einsätze dokumentieren
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" size="sm" variant="outline">Regiearbeiten öffnen</Button>
+              <Button className="w-full" size="sm" variant="outline">Arbeitsberichte öffnen</Button>
             </CardContent>
           </Card>
 
@@ -592,7 +591,7 @@ export default function Index() {
                     <div className="flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm truncate">
-                            {entry.location_type === "regie" ? `Regiebericht: ${entry.disturbances?.kunde_name || "Regie"}` : (entry.projects?.name || (entry.disturbance_id ? "Regiearbeit" : "Unbekanntes Projekt"))}
+                            {entry.location_type === "regie" ? `Arbeitsbericht: ${entry.disturbances?.kunde_name || "Arbeitsbericht"}` : (entry.projects?.name || (entry.disturbance_id ? "Arbeitsbericht" : "Unbekanntes Projekt"))}
                           </p>
                         <p className="text-xs text-muted-foreground truncate">{entry.taetigkeit}</p>
                       </div>
@@ -618,13 +617,8 @@ export default function Index() {
           </div>
         )}
 
-        {/* WhatsApp Integration Info */}
-        <div className="mt-6">
-          <WhatsAppStatus isAdmin={isAdmin} />
-        </div>
-
         <div className="mt-6 text-center text-xs text-muted-foreground">
-          <p>ePower GmbH</p>
+          <p>FASCHING Gebäudetechnik</p>
         </div>
       </main>
     </div>

@@ -633,7 +633,7 @@ const Projects = () => {
                       setQuickUploadProject({ projectId: project.id, documentType: 'reports' });
                     }}>
                       <FileText className="w-4 h-4 mr-2" />
-                      📄 Regieberichte hochladen
+                      📄 Arbeitsberichte hochladen
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();

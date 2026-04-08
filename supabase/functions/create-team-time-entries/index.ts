@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
       } catch (linkError) {
         console.error("Error creating disturbance links for main entry:", linkError);
         return new Response(
-          JSON.stringify({ success: false, error: "Failed to link Regieberichte to main entry" }),
+          JSON.stringify({ success: false, error: "Failed to link Arbeitsberichte to main entry" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

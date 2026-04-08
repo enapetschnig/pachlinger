@@ -188,7 +188,7 @@ const Disturbances = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Regieberichte" backPath="/" />
+      <PageHeader title="Arbeitsberichte" backPath="/" />
 
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Header with action button */}
@@ -196,7 +196,7 @@ const Disturbances = () => {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Zap className="h-6 w-6 text-primary" />
-              Regieberichte
+              Arbeitsberichte
             </h1>
             <p className="text-muted-foreground">
               Service-Einsätze dokumentieren
@@ -204,7 +204,7 @@ const Disturbances = () => {
           </div>
           <Button onClick={() => setShowForm(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            Neuer Regiebericht
+            Neuer Arbeitsbericht
           </Button>
         </div>
 
@@ -258,16 +258,16 @@ const Disturbances = () => {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Keine aktiven Regieberichte</h3>
+                  <h3 className="text-lg font-medium mb-2">Keine aktiven Arbeitsberichte</h3>
                   <p className="text-muted-foreground mb-4">
                     {searchQuery || statusFilter !== "alle"
                       ? "Keine Einträge entsprechen Ihren Filterkriterien"
-                      : "Erstellen Sie Ihren ersten Regiebericht"}
+                      : "Erstellen Sie Ihren ersten Arbeitsbericht"}
                   </p>
                   {!searchQuery && statusFilter === "alle" && (
                     <Button onClick={() => setShowForm(true)} variant="outline">
                       <Plus className="h-4 w-4 mr-2" />
-                      Ersten Regiebericht erfassen
+                      Ersten Arbeitsbericht erfassen
                     </Button>
                   )}
                 </CardContent>
@@ -347,7 +347,7 @@ const Disturbances = () => {
                   <Archive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium mb-2">Kein Archiv vorhanden</h3>
                   <p className="text-muted-foreground mb-4">
-                    Verrechnete Regieberichte erscheinen hier automatisch
+                    Verrechnete Arbeitsberichte erscheinen hier automatisch
                   </p>
                 </CardContent>
               </Card>

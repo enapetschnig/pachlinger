@@ -27,7 +27,7 @@ const bucketMap: Record<DocumentType, string> = {
 
 const titleMap: Record<DocumentType, string> = {
   plans: "Pläne",
-  reports: "Regieberichte",
+  reports: "Arbeitsberichte",
   photos: "Fotos",
   chef: "🔒 Chefordner",
 };
