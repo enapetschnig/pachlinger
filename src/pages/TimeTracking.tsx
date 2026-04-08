@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer, Info, Coffee, UtensilsCrossed } from "lucide-react";
+import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer, Info, Coffee, UtensilsCrossed, Copy, Zap } from "lucide-react";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
 import { FillRemainingHoursDialog } from "@/components/FillRemainingHoursDialog";
 import { PageHeader } from "@/components/PageHeader";
@@ -112,9 +112,100 @@ const TimeTracking = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([createDefaultBlock()]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [todayAssignments, setTodayAssignments] = useState<Array<{ project_id: string; project_name: string }>>([]);
 
   // Break validation: Prüft ob Pausen heute schon eingetragen sind
   const { breakfastTaken, lunchTaken, refresh: refreshBreaks } = useBreakValidation(currentUserId, selectedDate);
+
+  // Plantafel-Zuweisungen laden
+  const fetchAssignments = async (date: string, userId: string) => {
+    const { data } = await supabase
+      .from("worker_assignments")
+      .select("project_id, projects(name)")
+      .eq("user_id", userId)
+      .eq("datum", date);
+    if (data) {
+      setTodayAssignments(
+        data
+          .filter((a: any) => a.project_id)
+          .map((a: any) => ({ project_id: a.project_id, project_name: a.projects?.name || "" }))
+      );
+    } else {
+      setTodayAssignments([]);
+    }
+  };
+
+  // Gestern kopieren
+  const copyYesterday = async () => {
+    if (!currentUserId) return;
+    const yesterday = new Date(selectedDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    // Gehe zurück bis zum letzten Arbeitstag
+    while (!isWorkingDay(yesterday)) {
+      yesterday.setDate(yesterday.getDate() - 1);
+    }
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+    const { data } = await supabase
+      .from("time_entries")
+      .select("start_time, end_time, location_type, project_id, taetigkeit, has_breakfast_break, has_lunch_break")
+      .eq("user_id", currentUserId)
+      .eq("datum", yesterdayStr)
+      .order("start_time");
+
+    if (!data || data.length === 0) {
+      toast({ variant: "destructive", title: "Keine Einträge", description: `Am letzten Arbeitstag (${format(yesterday, "dd.MM.")}) gibt es keine Einträge.` });
+      return;
+    }
+
+    // Nur reguläre Arbeit kopieren (keine Abwesenheiten)
+    const workEntries = data.filter((e) => !ABSENCE_TYPES.includes(e.taetigkeit || ""));
+    if (workEntries.length === 0) {
+      toast({ variant: "destructive", title: "Keine Arbeit", description: "Am letzten Arbeitstag wurden nur Abwesenheiten eingetragen." });
+      return;
+    }
+
+    const newBlocks: TimeBlock[] = workEntries.map((e) => ({
+      id: crypto.randomUUID(),
+      locationType: (e.location_type === "werkstatt" ? "werkstatt" : "baustelle") as "baustelle" | "werkstatt",
+      projectId: e.project_id || "",
+      taetigkeit: e.taetigkeit || "",
+      startTime: e.start_time?.substring(0, 5) || DEFAULT_START_TIME,
+      endTime: e.end_time?.substring(0, 5) || "",
+      hasBreakfastBreak: !breakfastTaken && (e.has_breakfast_break || false),
+      hasLunchBreak: !lunchTaken && (e.has_lunch_break || false),
+      selectedEmployees: [],
+    }));
+
+    setTimeBlocks(newBlocks);
+    toast({ title: "Kopiert", description: `${newBlocks.length} Zeitblock(s) vom ${format(yesterday, "dd.MM.")} übernommen` });
+  };
+
+  // Normaltag: 07:00-17:08, Projekt aus Plantafel, beide Pausen
+  const applyQuickDay = () => {
+    const dateObj = new Date(selectedDate);
+    if (!isWorkingDay(dateObj)) {
+      toast({ variant: "destructive", title: "Kein Arbeitstag", description: "An diesem Tag wird nicht gearbeitet (MO-DO)" });
+      return;
+    }
+
+    const projectId = todayAssignments.length === 1 ? todayAssignments[0].project_id : "";
+
+    setTimeBlocks([{
+      id: crypto.randomUUID(),
+      locationType: "baustelle",
+      projectId,
+      taetigkeit: "",
+      startTime: DEFAULT_START_TIME,
+      endTime: DEFAULT_END_TIME,
+      hasBreakfastBreak: !breakfastTaken,
+      hasLunchBreak: !lunchTaken,
+      selectedEmployees: [],
+    }]);
+
+    const projectInfo = todayAssignments.length === 1 ? ` (${todayAssignments[0].project_name})` : "";
+    toast({ title: "Normaltag", description: `07:00-17:08 mit Pausen${projectInfo}` });
+  };
 
   // Prüfe ob innerhalb der aktuellen Blöcke schon eine Pause ausgewählt ist
   const breakfastInBlocks = timeBlocks.some((b) => b.hasBreakfastBreak);
@@ -122,9 +213,16 @@ const TimeTracking = () => {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id);
+      if (user) {
+        setCurrentUserId(user.id);
+        fetchAssignments(selectedDate, user.id);
+      }
     });
   }, []);
+
+  useEffect(() => {
+    if (currentUserId) fetchAssignments(selectedDate, currentUserId);
+  }, [selectedDate, currentUserId]);
 
   const getBlockHours = (block: TimeBlock): number => {
     return calculateHoursFromTimes(block.startTime, block.endTime, block.hasLunchBreak);
@@ -694,13 +792,31 @@ const TimeTracking = () => {
 
               {!isDayBlocked && (
                 <>
+                  {/* Plantafel-Hinweis */}
+                  {todayAssignments.length > 0 && (
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                      <p className="text-xs font-medium text-green-800 dark:text-green-200 mb-1">Heutige Einteilung (Plantafel):</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {todayAssignments.map((a, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{a.project_name}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Schnellaktionen */}
-                  <div className="flex flex-wrap gap-2 justify-end">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="default" size="sm" onClick={applyQuickDay} className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" />Normaltag
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={copyYesterday} className="flex items-center gap-1.5">
+                      <Copy className="w-3.5 h-3.5" />Letzten Tag kopieren
+                    </Button>
                     <Button type="button" variant="outline" size="sm" onClick={applyFullDayPreset} className="flex items-center gap-1.5">
-                      <Sun className="w-3.5 h-3.5" />Regelarbeitszeit ausfüllen
+                      <Sun className="w-3.5 h-3.5" />Regelarbeitszeit
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => setShowFillHoursDialog(true)} className="flex items-center gap-1.5">
-                      <Timer className="w-3.5 h-3.5" />Reststunden auffüllen
+                      <Timer className="w-3.5 h-3.5" />Reststunden
                     </Button>
                   </div>
 
