@@ -140,9 +140,15 @@ const TimeTracking = () => {
     if (!currentUserId) return;
     const yesterday = new Date(selectedDate);
     yesterday.setDate(yesterday.getDate() - 1);
-    // Gehe zurück bis zum letzten Arbeitstag
-    while (!isWorkingDay(yesterday)) {
+    // Gehe zurück bis zum letzten Arbeitstag (max 14 Tage)
+    let attempts = 0;
+    while (!isWorkingDay(yesterday) && attempts < 14) {
       yesterday.setDate(yesterday.getDate() - 1);
+      attempts++;
+    }
+    if (attempts >= 14) {
+      toast({ variant: "destructive", title: "Fehler", description: "Kein Arbeitstag in den letzten 2 Wochen gefunden." });
+      return;
     }
     const yesterdayStr = yesterday.toISOString().split("T")[0];
 
@@ -203,8 +209,12 @@ const TimeTracking = () => {
       selectedEmployees: [],
     }]);
 
-    const projectInfo = todayAssignments.length === 1 ? ` (${todayAssignments[0].project_name})` : "";
-    toast({ title: "Normaltag", description: `07:00-17:08 mit Pausen${projectInfo}` });
+    const projectInfo = todayAssignments.length === 1
+      ? ` – Projekt: ${todayAssignments[0].project_name}`
+      : todayAssignments.length > 1
+      ? " – Bitte Projekt manuell wählen (mehrere Einteilungen)"
+      : "";
+    toast({ title: "Normaltag ausgefüllt", description: `07:00-17:08 mit Pausen${projectInfo}` });
   };
 
   // Prüfe ob innerhalb der aktuellen Blöcke schon eine Pause ausgewählt ist
@@ -614,7 +624,22 @@ const TimeTracking = () => {
         return;
       }
 
-      // Time overlap check
+      // Overlap check within new blocks
+      for (let i = 0; i < timeBlocks.length; i++) {
+        for (let j = i + 1; j < timeBlocks.length; j++) {
+          const aStart = timeToMinutes(timeBlocks[i].startTime);
+          const aEnd = timeToMinutes(timeBlocks[i].endTime);
+          const bStart = timeToMinutes(timeBlocks[j].startTime);
+          const bEnd = timeToMinutes(timeBlocks[j].endTime);
+          if (aStart < bEnd && aEnd > bStart) {
+            toast({ variant: "destructive", title: "Zeitüberschneidung", description: `Block ${i + 1} und Block ${j + 1} überschneiden sich.` });
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
+      // Time overlap check with existing entries
       for (const entry of existingEntries) {
         if (ABSENCE_TYPES.includes(entry.taetigkeit)) continue;
         const existingStart = timeToMinutes(entry.start_time);

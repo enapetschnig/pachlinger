@@ -75,8 +75,13 @@ Regeln:
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenAI API error:", response.status, errorText);
+      const errorMsg = response.status === 429
+        ? "KI-Dienst vorübergehend überlastet. Bitte in 30 Sekunden erneut versuchen."
+        : response.status === 401
+        ? "OpenAI API-Key ungültig. Bitte im Supabase Dashboard prüfen."
+        : `OpenAI API Fehler: ${response.status}`;
       return new Response(
-        JSON.stringify({ error: `OpenAI API Fehler: ${response.status}` }),
+        JSON.stringify({ error: errorMsg }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -97,10 +102,13 @@ Regeln:
       // Remove potential markdown code fences
       const cleanJson = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleanJson);
+      if (!parsed.beschreibung || typeof parsed.beschreibung !== "string") {
+        throw new Error("Keine Arbeitsbeschreibung extrahiert");
+      }
     } catch (parseErr) {
       console.error("Failed to parse OpenAI response:", content);
       return new Response(
-        JSON.stringify({ error: "KI-Antwort konnte nicht verarbeitet werden", raw: content }),
+        JSON.stringify({ error: parseErr instanceof Error ? parseErr.message : "KI-Antwort konnte nicht verarbeitet werden", raw: content }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }

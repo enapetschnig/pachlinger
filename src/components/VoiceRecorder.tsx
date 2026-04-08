@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, MicOff, Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +32,15 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Cleanup bei Unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (_) {}
+      }
+    };
+  }, []);
 
   const startRecording = useCallback(() => {
     if (!isSpeechRecognitionSupported()) {
@@ -82,6 +91,8 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
       if (finalTranscript.trim()) {
         setTranscript(finalTranscript.trim());
         parseTranscript(finalTranscript.trim());
+      } else {
+        setError("Keine Sprache erkannt. Bitte sprechen Sie deutlich und versuchen Sie es erneut.");
       }
     };
 

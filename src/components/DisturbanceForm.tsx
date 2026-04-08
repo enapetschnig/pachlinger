@@ -246,6 +246,11 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     }
 
     const stunden = calculateHours();
+    if (stunden <= 0 || stunden > 16) {
+      toast({ variant: "destructive", title: "Fehler", description: `Ungültige Stundenzahl: ${stunden.toFixed(2)}h. Maximum ist 16h.` });
+      setSaving(false);
+      return;
+    }
 
     const disturbanceData = {
       user_id: user.id,
@@ -499,9 +504,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 type="button"
                 onClick={() => {
                   setWorkType("projekt");
-                  if (!selectedProjectId) {
-                    // Clear project-related state
-                  }
                 }}
                 className={`rounded-lg border-2 p-3 text-left transition-colors ${
                   workType === "projekt"

@@ -37,7 +37,8 @@ export const DAILY_WORK_MINUTES = 577.5; // 9h 37.5min
 export const DAILY_WORK_HOURS = 9.625; // 9h 37.5min
 export const WEEKLY_TARGET_HOURS = 38.5;
 export const DEFAULT_START_TIME = "07:00";
-export const DEFAULT_END_TIME = "17:08"; // 17:07:30 gerundet
+// 07:00 + 9h37.5min Arbeit + 30min Mittagspause = 17:07:30 → aufgerundet auf 17:08
+export const DEFAULT_END_TIME = "17:08";
 
 export function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);

@@ -54,7 +54,7 @@ export const FillRemainingHoursDialog = ({
   const [submitting, setSubmitting] = useState(false);
 
   const suggestedStartTime = useMemo(
-    () => calculateSuggestedStartTime(new Date(date), lastEndTime, 0),
+    () => calculateSuggestedStartTime(new Date(date), lastEndTime),
     [date, lastEndTime]
   );
 
