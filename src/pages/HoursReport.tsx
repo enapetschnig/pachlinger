@@ -877,7 +877,7 @@ export default function HoursReport() {
             normalHours > 0 ? "12:00" : "",
             normalHours > 0 ? "12:00 - 12:30" : "",
             normalHours > 0 ? "12:30" : "",
-            normalHours > 0 ? "17:07" : "",
+            normalHours > 0 ? "17:07:30" : "",
             normalHours.toFixed(2),
             ortText,
             projektName,

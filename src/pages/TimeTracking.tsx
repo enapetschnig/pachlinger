@@ -181,7 +181,7 @@ const TimeTracking = () => {
       projectId: e.project_id || "",
       taetigkeit: e.taetigkeit || "",
       startTime: e.start_time?.substring(0, 5) || DEFAULT_START_TIME,
-      endTime: e.end_time?.substring(0, 5) || "",
+      endTime: e.end_time?.substring(0, 8) || "",
       hasBreakfastBreak: !breakfastTaken && (e.has_breakfast_break || false),
       hasLunchBreak: !lunchTaken && (e.has_lunch_break || false),
       selectedEmployees: [],
@@ -191,7 +191,7 @@ const TimeTracking = () => {
     toast({ title: "Kopiert", description: `${newBlocks.length} Zeitblock(s) vom ${format(yesterday, "dd.MM.")} übernommen` });
   };
 
-  // Normaltag: 07:00-17:07, Projekt aus Plantafel, beide Pausen
+  // Normaltag: 07:00–17:07:30, Projekt aus Plantafel, beide Pausen
   const applyQuickDay = () => {
     const dateObj = new Date(selectedDate);
     if (!isWorkingDay(dateObj)) {
@@ -218,7 +218,7 @@ const TimeTracking = () => {
       : todayAssignments.length > 1
       ? " – Bitte Projekt manuell wählen (mehrere Einteilungen)"
       : "";
-    toast({ title: "Normaltag ausgefüllt", description: `07:00-17:07 mit Pausen${projectInfo}` });
+    toast({ title: "Normaltag ausgefüllt", description: `07:00–17:07:30 mit Pausen${projectInfo}` });
   };
 
   // Prüfe ob innerhalb der aktuellen Blöcke schon eine Pause ausgewählt ist
@@ -770,7 +770,7 @@ const TimeTracking = () => {
               <div className="rounded-lg border bg-card p-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-sm">{getWeeklyTargetHours()}h Wochensoll</Badge>
-                  <span className="text-sm text-muted-foreground">MO-DO: {DAILY_WORK_HOURS}h (07:00-17:07)</span>
+                  <span className="text-sm text-muted-foreground">MO-DO: {DAILY_WORK_HOURS}h (07:00–17:07:30)</span>
                 </div>
               </div>
 
@@ -968,6 +968,7 @@ const TimeTracking = () => {
                             <Label>Bis</Label>
                             <Input
                               type="time"
+                              step="1"
                               value={block.endTime}
                               onChange={(e) => updateBlock(block.id, { endTime: e.target.value })}
                               className="text-center font-mono"
