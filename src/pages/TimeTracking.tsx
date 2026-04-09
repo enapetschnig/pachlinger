@@ -106,6 +106,7 @@ const TimeTracking = () => {
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectPlz, setNewProjectPlz] = useState("");
   const [newProjectAddress, setNewProjectAddress] = useState("");
+  const [newProjectKundeName, setNewProjectKundeName] = useState("");
   const [pendingBlockIdForNewProject, setPendingBlockIdForNewProject] = useState<string | null>(null);
   const [existingDayEntries, setExistingDayEntries] = useState<ExistingEntry[]>([]);
   const [loadingDayEntries, setLoadingDayEntries] = useState(false);
@@ -443,7 +444,7 @@ const TimeTracking = () => {
     setCreatingProject(true);
     const { data, error } = await supabase
       .from("projects")
-      .insert({ name: newProjectName.trim(), plz: newProjectPlz.trim(), adresse: newProjectAddress.trim() || null, status: "aktiv" })
+      .insert({ name: newProjectName.trim(), plz: newProjectPlz.trim(), adresse: newProjectAddress.trim() || null, kunde_name: newProjectKundeName.trim() || null, status: "aktiv" })
       .select()
       .single();
 
@@ -459,6 +460,7 @@ const TimeTracking = () => {
     setNewProjectName("");
     setNewProjectPlz("");
     setNewProjectAddress("");
+    setNewProjectKundeName("");
     setPendingBlockIdForNewProject(null);
     setCreatingProject(false);
   };
@@ -1098,8 +1100,9 @@ const TimeTracking = () => {
               <div><Label>Projektname *</Label><Input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} /></div>
               <div><Label>PLZ *</Label><Input value={newProjectPlz} onChange={(e) => setNewProjectPlz(e.target.value)} maxLength={5} /></div>
               <div><Label>Adresse</Label><Input value={newProjectAddress} onChange={(e) => setNewProjectAddress(e.target.value)} /></div>
+              <div><Label>Kundenname</Label><Input value={newProjectKundeName} onChange={(e) => setNewProjectKundeName(e.target.value)} placeholder="z.B. Mustermann GmbH" /></div>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => { setShowNewProjectDialog(false); setNewProjectName(""); setNewProjectPlz(""); setNewProjectAddress(""); setPendingBlockIdForNewProject(null); }} disabled={creatingProject}>Abbrechen</Button>
+                <Button variant="outline" onClick={() => { setShowNewProjectDialog(false); setNewProjectName(""); setNewProjectPlz(""); setNewProjectAddress(""); setNewProjectKundeName(""); setPendingBlockIdForNewProject(null); }} disabled={creatingProject}>Abbrechen</Button>
                 <Button onClick={handleCreateNewProject} disabled={creatingProject}>{creatingProject ? "Wird erstellt..." : "Erstellen"}</Button>
               </div>
             </div>

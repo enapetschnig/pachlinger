@@ -53,13 +53,15 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const [workType, setWorkType] = useState<"projekt" | "kunde">("kunde");
   const [hasBreakfastBreak, setHasBreakfastBreak] = useState(false);
   const [hasLunchBreak, setHasLunchBreak] = useState(false);
+  const [breakfastStart, setBreakfastStart] = useState(BREAKFAST_BREAK_START);
+  const [breakfastEnd, setBreakfastEnd] = useState(BREAKFAST_BREAK_END);
+  const [lunchStart, setLunchStart] = useState(LUNCH_BREAK_START);
+  const [lunchEnd, setLunchEnd] = useState(LUNCH_BREAK_END);
   const [userId, setUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     datum: format(new Date(), "yyyy-MM-dd"),
     startTime: "08:00",
     endTime: "10:00",
-    pauseStart: "",
-    pauseEnd: "",
     kundeName: "",
     kundeAdresse: "",
     beschreibung: "",
@@ -128,8 +130,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         datum: editData.datum,
         startTime: editData.start_time.slice(0, 5),
         endTime: editData.end_time.slice(0, 5),
-        pauseStart: "",
-        pauseEnd: "",
         kundeName: editData.kunde_name,
         kundeAdresse: editData.kunde_adresse || "",
         beschreibung: editData.beschreibung,
@@ -143,8 +143,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         datum: format(new Date(), "yyyy-MM-dd"),
         startTime: "08:00",
         endTime: "10:00",
-        pauseStart: "",
-        pauseEnd: "",
         kundeName: "",
         kundeAdresse: "",
         beschreibung: "",
@@ -187,16 +185,16 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   };
 
   const getPauseMinutes = (): number => {
-    if (hasLunchBreak) return LUNCH_BREAK_MINUTES;
-    if (formData.pauseStart && formData.pauseEnd) {
-      const [psH, psM] = formData.pauseStart.split(":").map(Number);
-      const [peH, peM] = formData.pauseEnd.split(":").map(Number);
-      return Math.max(0, (peH * 60 + peM) - (psH * 60 + psM));
+    if (hasLunchBreak && lunchStart && lunchEnd) {
+      const [lsH, lsM] = lunchStart.split(":").map(Number);
+      const [leH, leM] = lunchEnd.split(":").map(Number);
+      return Math.max(0, (leH * 60 + leM) - (lsH * 60 + lsM));
     }
     return 0;
   };
 
   const calculateHours = (): number => {
+    if (!formData.startTime || !formData.endTime) return 0;
     const [startH, startM] = formData.startTime.split(":").map(Number);
     const [endH, endM] = formData.endTime.split(":").map(Number);
     const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM) - getPauseMinutes();
@@ -636,24 +634,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                       required
                     />
                   </div>
-              <div>
-                <Label>Pause von</Label>
-                <Input
-                  type="time"
-                  value={formData.pauseStart}
-                  onChange={(e) => setFormData({ ...formData, pauseStart: e.target.value })}
-                  placeholder="z.B. 12:00"
-                />
-              </div>
-              <div>
-                <Label>Pause bis</Label>
-                <Input
-                  type="time"
-                  value={formData.pauseEnd}
-                  onChange={(e) => setFormData({ ...formData, pauseEnd: e.target.value })}
-                  placeholder="z.B. 12:30"
-                />
-              </div>
               <div className="flex items-end">
                 <div className="bg-muted rounded-md px-3 py-2 w-full text-center">
                   <span className="text-sm text-muted-foreground">Stunden: </span>
@@ -662,37 +642,56 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               </div>
             </div>
 
-            {/* Break Checkboxes */}
-              <div className="space-y-2 pt-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="breakfastBreak"
-                    checked={hasBreakfastBreak}
-                    onCheckedChange={(checked) => setHasBreakfastBreak(checked === true)}
-                    disabled={breakfastTaken}
-                  />
-                  <Label htmlFor="breakfastBreak" className="text-sm font-normal cursor-pointer">
-                    Vormittagspause ({BREAKFAST_BREAK_START}–{BREAKFAST_BREAK_END})
-                    {breakfastTaken && (
-                      <span className="text-xs text-muted-foreground ml-1">(bereits eingetragen)</span>
-                    )}
+            {/* Pausen */}
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+              <p className="text-sm font-medium text-muted-foreground">Pausen</p>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <Checkbox id="breakfastBreak" checked={hasBreakfastBreak} disabled={breakfastTaken} onCheckedChange={(checked) => setHasBreakfastBreak(checked === true)} />
+                  <Label htmlFor="breakfastBreak" className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
+                    Vormittagspause
+                    <span className="text-xs text-muted-foreground ml-auto">zählt als Arbeitszeit</span>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="lunchBreak"
-                    checked={hasLunchBreak}
-                    onCheckedChange={(checked) => setHasLunchBreak(checked === true)}
-                    disabled={lunchTaken}
-                  />
-                  <Label htmlFor="lunchBreak" className="text-sm font-normal cursor-pointer">
-                    Mittagspause ({LUNCH_BREAK_START}–{LUNCH_BREAK_END})
-                    {lunchTaken && (
-                      <span className="text-xs text-muted-foreground ml-1">(bereits eingetragen)</span>
-                    )}
-                  </Label>
-                </div>
+                {hasBreakfastBreak && (
+                  <div className="grid grid-cols-2 gap-2 pl-8">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Von</label>
+                      <Input type="time" value={breakfastStart} onChange={(e) => setBreakfastStart(e.target.value)} className="h-9 text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Bis</label>
+                      <Input type="time" value={breakfastEnd} onChange={(e) => setBreakfastEnd(e.target.value)} className="h-9 text-sm font-mono" />
+                    </div>
+                  </div>
+                )}
+                {breakfastTaken && <p className="text-xs text-muted-foreground pl-8">Bereits eingetragen</p>}
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <Checkbox id="lunchBreak" checked={hasLunchBreak} disabled={lunchTaken} onCheckedChange={(checked) => setHasLunchBreak(checked === true)} />
+                  <Label htmlFor="lunchBreak" className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
+                    Mittagspause
+                    <span className="text-xs text-destructive ml-auto">wird abgezogen</span>
+                  </Label>
+                </div>
+                {hasLunchBreak && (
+                  <div className="grid grid-cols-2 gap-2 pl-8">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Von</label>
+                      <Input type="time" value={lunchStart} onChange={(e) => setLunchStart(e.target.value)} className="h-9 text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Bis</label>
+                      <Input type="time" value={lunchEnd} onChange={(e) => setLunchEnd(e.target.value)} className="h-9 text-sm font-mono" />
+                    </div>
+                  </div>
+                )}
+                {lunchTaken && <p className="text-xs text-muted-foreground pl-8">Bereits eingetragen</p>}
+              </div>
+            </div>
           </div>
 
           {/* Customer Section */}
