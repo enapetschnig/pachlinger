@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer, Info, Coffee, UtensilsCrossed, Copy, Zap, Check, ChevronsUpDown } from "lucide-react";
+import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Info, Coffee, UtensilsCrossed, Copy, Zap, Check, ChevronsUpDown } from "lucide-react";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
-import { FillRemainingHoursDialog } from "@/components/FillRemainingHoursDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -70,6 +69,10 @@ interface TimeBlock {
   endTime: string;
   hasBreakfastBreak: boolean;
   hasLunchBreak: boolean;
+  breakfastStart: string;
+  breakfastEnd: string;
+  lunchStart: string;
+  lunchEnd: string;
   selectedEmployees: string[];
 }
 
@@ -82,6 +85,10 @@ const createDefaultBlock = (startTime = DEFAULT_START_TIME): TimeBlock => ({
   endTime: "",
   hasBreakfastBreak: false,
   hasLunchBreak: false,
+  breakfastStart: BREAKFAST_BREAK_START,
+  breakfastEnd: BREAKFAST_BREAK_END,
+  lunchStart: LUNCH_BREAK_START,
+  lunchEnd: LUNCH_BREAK_END,
   selectedEmployees: [],
 });
 
@@ -103,7 +110,6 @@ const TimeTracking = () => {
   const [existingDayEntries, setExistingDayEntries] = useState<ExistingEntry[]>([]);
   const [loadingDayEntries, setLoadingDayEntries] = useState(false);
   const [showAbsenceDialog, setShowAbsenceDialog] = useState(false);
-  const [showFillHoursDialog, setShowFillHoursDialog] = useState(false);
   const [absenceData, setAbsenceData] = useState({
     date: new Date().toISOString().split("T")[0],
     type: "urlaub" as "urlaub" | "krankenstand" | "weiterbildung" | "arztbesuch" | "zeitausgleich",
@@ -184,6 +190,10 @@ const TimeTracking = () => {
       endTime: e.end_time?.substring(0, 8) || "",
       hasBreakfastBreak: !breakfastTaken && (e.has_breakfast_break || false),
       hasLunchBreak: !lunchTaken && (e.has_lunch_break || false),
+      breakfastStart: BREAKFAST_BREAK_START,
+      breakfastEnd: BREAKFAST_BREAK_END,
+      lunchStart: LUNCH_BREAK_START,
+      lunchEnd: LUNCH_BREAK_END,
       selectedEmployees: [],
     }));
 
@@ -210,6 +220,10 @@ const TimeTracking = () => {
       endTime: DEFAULT_END_TIME,
       hasBreakfastBreak: !breakfastTaken,
       hasLunchBreak: !lunchTaken,
+      breakfastStart: BREAKFAST_BREAK_START,
+      breakfastEnd: BREAKFAST_BREAK_END,
+      lunchStart: LUNCH_BREAK_START,
+      lunchEnd: LUNCH_BREAK_END,
       selectedEmployees: [],
     }]);
 
@@ -239,7 +253,18 @@ const TimeTracking = () => {
   }, [selectedDate, currentUserId]);
 
   const getBlockHours = (block: TimeBlock): number => {
-    return calculateHoursFromTimes(block.startTime, block.endTime, block.hasLunchBreak);
+    if (!block.startTime || !block.endTime) return 0;
+    const startMin = timeToMinutes(block.startTime);
+    const endMin = timeToMinutes(block.endTime);
+    if (endMin <= startMin) return 0;
+    let workMinutes = endMin - startMin;
+    // Mittagspause abziehen (benutzerdefinierte Zeiten)
+    if (block.hasLunchBreak && block.lunchStart && block.lunchEnd) {
+      const lunchMin = timeToMinutes(block.lunchEnd) - timeToMinutes(block.lunchStart);
+      workMinutes -= Math.max(0, lunchMin);
+    }
+    // Vormittagspause zählt als Arbeitszeit -> nicht abziehen
+    return Math.max(0, workMinutes / 60);
   };
 
   const getLastExistingEndTime = (entries: ExistingEntry[] = existingDayEntries): string | null => {
@@ -668,10 +693,11 @@ const TimeTracking = () => {
 
     for (const block of timeBlocks) {
       const blockHours = getBlockHours(block);
-      const pauseMinutes = block.hasLunchBreak ? LUNCH_BREAK_MINUTES : 0;
+      const lunchPauseMin = block.hasLunchBreak
+        ? Math.max(0, timeToMinutes(block.lunchEnd) - timeToMinutes(block.lunchStart))
+        : 0;
 
-      const mainEntry = {
-        user_id: user.id,
+      const entryData = {
         datum: selectedDate,
         project_id: block.locationType === "baustelle" ? (block.projectId || null) : null,
         disturbance_id: null,
@@ -679,9 +705,9 @@ const TimeTracking = () => {
         stunden: blockHours,
         start_time: block.startTime,
         end_time: block.endTime,
-        pause_minutes: pauseMinutes,
-        pause_start: block.hasLunchBreak ? LUNCH_BREAK_START : null,
-        pause_end: block.hasLunchBreak ? LUNCH_BREAK_END : null,
+        pause_minutes: Math.round(lunchPauseMin),
+        pause_start: block.hasLunchBreak ? block.lunchStart : null,
+        pause_end: block.hasLunchBreak ? block.lunchEnd : null,
         location_type: block.locationType,
         has_breakfast_break: block.hasBreakfastBreak,
         has_lunch_break: block.hasLunchBreak,
@@ -689,24 +715,8 @@ const TimeTracking = () => {
         week_type: null,
       };
 
-      const teamEntries = block.selectedEmployees.map((workerId) => ({
-        user_id: workerId,
-        datum: selectedDate,
-        project_id: block.locationType === "baustelle" ? (block.projectId || null) : null,
-        disturbance_id: null,
-        taetigkeit: block.taetigkeit || "",
-        stunden: blockHours,
-        start_time: block.startTime,
-        end_time: block.endTime,
-        pause_minutes: pauseMinutes,
-        pause_start: block.hasLunchBreak ? LUNCH_BREAK_START : null,
-        pause_end: block.hasLunchBreak ? LUNCH_BREAK_END : null,
-        location_type: block.locationType,
-        has_breakfast_break: block.hasBreakfastBreak,
-        has_lunch_break: block.hasLunchBreak,
-        notizen: null,
-        week_type: null,
-      }));
+      const mainEntry = { ...entryData, user_id: user.id };
+      const teamEntries = block.selectedEmployees.map((workerId) => ({ ...entryData, user_id: workerId }));
 
       const { data: result, error: functionError } = await supabase.functions.invoke("create-team-time-entries", {
         body: { mainEntry, teamEntries, disturbanceIds: [], createWorkerLinks: true },
@@ -844,9 +854,6 @@ const TimeTracking = () => {
                     <Button type="button" variant="outline" size="sm" onClick={applyFullDayPreset} className="flex items-center gap-1.5">
                       <Sun className="w-3.5 h-3.5" />Regelarbeitszeit
                     </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setShowFillHoursDialog(true)} className="flex items-center gap-1.5">
-                      <Timer className="w-3.5 h-3.5" />Reststunden
-                    </Button>
                   </div>
 
                   {/* Zeitblöcke */}
@@ -981,42 +988,66 @@ const TimeTracking = () => {
                           <p className="text-sm font-medium text-muted-foreground">Pausen</p>
 
                           {/* Vormittagspause */}
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              id={`breakfast-${block.id}`}
-                              checked={block.hasBreakfastBreak}
-                              disabled={
-                                (breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak))
-                              }
-                              onCheckedChange={(checked) => updateBlock(block.id, { hasBreakfastBreak: !!checked })}
-                            />
-                            <label htmlFor={`breakfast-${block.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
-                              <Coffee className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Vormittagspause ({BREAKFAST_BREAK_START}-{BREAKFAST_BREAK_END})</span>
-                              <Badge variant="outline" className="text-xs">zählt als Arbeitszeit</Badge>
-                            </label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                id={`breakfast-${block.id}`}
+                                checked={block.hasBreakfastBreak}
+                                disabled={breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak)}
+                                onCheckedChange={(checked) => updateBlock(block.id, { hasBreakfastBreak: !!checked })}
+                              />
+                              <label htmlFor={`breakfast-${block.id}`} className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
+                                <Coffee className="w-4 h-4 text-amber-600" />
+                                <span>Vormittagspause</span>
+                                <Badge variant="outline" className="text-xs ml-auto">zählt als Arbeitszeit</Badge>
+                              </label>
+                            </div>
+                            {block.hasBreakfastBreak && (
+                              <div className="grid grid-cols-2 gap-2 pl-8">
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Von</label>
+                                  <Input type="time" value={block.breakfastStart} onChange={(e) => updateBlock(block.id, { breakfastStart: e.target.value })} className="h-9 text-sm font-mono" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Bis</label>
+                                  <Input type="time" value={block.breakfastEnd} onChange={(e) => updateBlock(block.id, { breakfastEnd: e.target.value })} className="h-9 text-sm font-mono" />
+                                </div>
+                              </div>
+                            )}
                             {(breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak)) && (
-                              <span className="text-xs text-muted-foreground ml-auto">bereits eingetragen</span>
+                              <p className="text-xs text-muted-foreground pl-8">Bereits eingetragen</p>
                             )}
                           </div>
 
                           {/* Mittagspause */}
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              id={`lunch-${block.id}`}
-                              checked={block.hasLunchBreak}
-                              disabled={
-                                (lunchTaken || (lunchInBlocks && !block.hasLunchBreak))
-                              }
-                              onCheckedChange={(checked) => updateBlock(block.id, { hasLunchBreak: !!checked })}
-                            />
-                            <label htmlFor={`lunch-${block.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
-                              <UtensilsCrossed className="w-3.5 h-3.5 text-orange-600" />
-                              <span>Mittagspause ({LUNCH_BREAK_START}-{LUNCH_BREAK_END})</span>
-                              <Badge variant="outline" className="text-xs text-destructive border-destructive/30">wird abgezogen</Badge>
-                            </label>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                id={`lunch-${block.id}`}
+                                checked={block.hasLunchBreak}
+                                disabled={lunchTaken || (lunchInBlocks && !block.hasLunchBreak)}
+                                onCheckedChange={(checked) => updateBlock(block.id, { hasLunchBreak: !!checked })}
+                              />
+                              <label htmlFor={`lunch-${block.id}`} className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
+                                <UtensilsCrossed className="w-4 h-4 text-orange-600" />
+                                <span>Mittagspause</span>
+                                <Badge variant="outline" className="text-xs text-destructive border-destructive/30 ml-auto">wird abgezogen</Badge>
+                              </label>
+                            </div>
+                            {block.hasLunchBreak && (
+                              <div className="grid grid-cols-2 gap-2 pl-8">
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Von</label>
+                                  <Input type="time" value={block.lunchStart} onChange={(e) => updateBlock(block.id, { lunchStart: e.target.value })} className="h-9 text-sm font-mono" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground">Bis</label>
+                                  <Input type="time" value={block.lunchEnd} onChange={(e) => updateBlock(block.id, { lunchEnd: e.target.value })} className="h-9 text-sm font-mono" />
+                                </div>
+                              </div>
+                            )}
                             {(lunchTaken || (lunchInBlocks && !block.hasLunchBreak)) && (
-                              <span className="text-xs text-muted-foreground ml-auto">bereits eingetragen</span>
+                              <p className="text-xs text-muted-foreground pl-8">Bereits eingetragen</p>
                             )}
                           </div>
                         </div>
@@ -1129,46 +1160,6 @@ const TimeTracking = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Fill Remaining Hours Dialog */}
-        <FillRemainingHoursDialog
-          open={showFillHoursDialog}
-          onOpenChange={setShowFillHoursDialog}
-          date={selectedDate}
-          remainingHours={Math.max(dailyTargetForDate - existingDayEntries.reduce((sum, entry) => sum + Number(entry.stunden), 0), 0)}
-          bookedHours={existingDayEntries.reduce((sum, entry) => sum + Number(entry.stunden), 0)}
-          targetHours={dailyTargetForDate}
-          projects={projects}
-          lastEndTime={getLastExistingEndTime()}
-          onSubmit={async ({ projectId, locationType, description, hours, startTime, endTime, pauseMinutes, pauseStart, pauseEnd }) => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-              toast({ variant: "destructive", title: "Fehler", description: "Sie müssen angemeldet sein" });
-              return;
-            }
-            const { error } = await supabase.from("time_entries").insert({
-              user_id: user.id,
-              datum: selectedDate,
-              project_id: locationType === "baustelle" ? projectId : null,
-              disturbance_id: null,
-              taetigkeit: description || null,
-              stunden: hours,
-              start_time: startTime,
-              end_time: endTime,
-              pause_minutes: pauseMinutes,
-              pause_start: pauseStart,
-              pause_end: pauseEnd,
-              location_type: locationType,
-              notizen: null,
-              week_type: null,
-            });
-            if (error) {
-              toast({ variant: "destructive", title: "Fehler", description: "Reststunden konnten nicht gebucht werden" });
-              throw error;
-            }
-            toast({ title: "Erfolg", description: "Reststunden wurden gebucht" });
-            await fetchExistingDayEntries(selectedDate);
-          }}
-        />
       </div>
     </div>
   );
