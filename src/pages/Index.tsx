@@ -358,7 +358,7 @@ export default function Index() {
                               <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-sm">{a.projects?.name || "Unbekanntes Projekt"}</p>
+                                  <p className="font-semibold text-base">{a.projects?.name || "Unbekanntes Projekt"}</p>
                                   {(a.start_time || a.end_time) && (
                                     <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                       {a.start_time?.slice(0, 5) || "?"} – {a.end_time?.slice(0, 5) || "?"}
@@ -367,8 +367,8 @@ export default function Index() {
                                 </div>
                                 {a.notizen && (
                                   <div className="flex items-start gap-1 mt-0.5">
-                                    <StickyNote className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
-                                    <p className="text-xs text-muted-foreground">{a.notizen}</p>
+                                    <StickyNote className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                                    <p className="text-sm text-muted-foreground">{a.notizen}</p>
                                   </div>
                                 )}
                               </div>
@@ -590,14 +590,14 @@ export default function Index() {
                   <CardContent className="p-3">
                     <div className="flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">
+                          <p className="font-semibold text-base truncate">
                             {entry.location_type === "regie" ? `Arbeitsbericht: ${entry.disturbances?.kunde_name || "Arbeitsbericht"}` : (entry.projects?.name || (entry.disturbance_id ? "Arbeitsbericht" : "Unbekanntes Projekt"))}
                           </p>
-                        <p className="text-xs text-muted-foreground truncate">{entry.taetigkeit}</p>
+                        <p className="text-sm text-muted-foreground truncate">{entry.taetigkeit}</p>
                       </div>
                       <div className="text-right ml-3 shrink-0">
                         <p className="font-bold">{entry.stunden} h</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                           {new Date(entry.datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
                         </p>
                       </div>

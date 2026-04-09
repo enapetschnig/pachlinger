@@ -756,7 +756,7 @@ export default function Admin() {
                     value={inviteTelefon}
                     onChange={(e) => setInviteTelefon(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Format: +43 gefolgt von der Nummer ohne Leerzeichen
                   </p>
                 </div>

@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, User, Mail, Phone, MapPin, FileText, Package, Plus, Trash2, FolderOpen } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, MapPin, FileText, Package, Plus, Trash2, FolderOpen, Check, ChevronsUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { LocationButton } from "@/components/LocationButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +72,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [materials, setMaterials] = useState<MaterialEntry[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string; plz: string; adresse?: string; kunde_name?: string; kunde_email?: string; kunde_telefon?: string }[]>([]);
 
   const { breakfastTaken, lunchTaken } = useBreakValidation(
@@ -512,7 +516,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 }`}
               >
                 <div className="font-medium text-sm">Projekt-Arbeit</div>
-                <p className="text-xs text-muted-foreground mt-1">Bestehendes Projekt</p>
+                <p className="text-sm text-muted-foreground mt-1">Bestehendes Projekt</p>
               </button>
               <button
                 type="button"
@@ -527,10 +531,10 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 }`}
               >
                 <div className="font-medium text-sm">Kunden-Arbeit</div>
-                <p className="text-xs text-muted-foreground mt-1">Einzelkunde ohne Projekt</p>
+                <p className="text-sm text-muted-foreground mt-1">Einzelkunde ohne Projekt</p>
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {workType === "projekt"
                 ? "Wählen Sie ein bestehendes Projekt - Kundendaten werden automatisch übernommen."
                 : "Arbeit für einen einzelnen Kunden ohne Projektbezug."}
@@ -544,28 +548,55 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 <FolderOpen className="h-4 w-4" />
                 Projekt auswählen
               </h3>
-              <Select
-                value={selectedProjectId || "none"}
-                onValueChange={(val) => {
-                  const projectId = val === "none" ? null : val;
-                  setSelectedProjectId(projectId);
-                  if (projectId) {
-                    fetchProjectCustomerData(projectId);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Projekt auswählen..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Kein Projekt</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.plz})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={projectSearchOpen} onOpenChange={setProjectSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={projectSearchOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedProjectId
+                      ? (() => { const p = projects.find(p => p.id === selectedProjectId); return p ? `${p.name} (${p.plz})` : "Projekt suchen..."; })()
+                      : "Projekt suchen..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Name oder PLZ eingeben..." />
+                    <CommandList>
+                      <CommandEmpty>Kein Projekt gefunden.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__none__"
+                          onSelect={() => {
+                            setSelectedProjectId(null);
+                            setProjectSearchOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", !selectedProjectId ? "opacity-100" : "opacity-0")} />
+                          Kein Projekt
+                        </CommandItem>
+                        {projects.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.name} ${p.plz}`}
+                            onSelect={() => {
+                              setSelectedProjectId(p.id);
+                              fetchProjectCustomerData(p.id);
+                              setProjectSearchOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedProjectId === p.id ? "opacity-100" : "opacity-0")} />
+                            {p.name} ({p.plz})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
 
@@ -580,9 +611,9 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 variant={directHoursMode ? "default" : "outline"}
                 size="sm"
                 onClick={() => setDirectHoursMode(!directHoursMode)}
-                className="text-xs"
+                className="text-sm"
               >
-                <Clock className="h-3 w-3 mr-1" />
+                <Clock className="h-4 w-4 mr-1" />
                 {directHoursMode ? "Beginn/Ende" : "Stunden direkt"}
               </Button>
             </div>
@@ -630,7 +661,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                       placeholder="z.B. 2.5"
                       className="text-center text-lg font-mono"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Berechnet: {formData.startTime} – {formData.endTime}
                     </p>
                   </div>
@@ -718,7 +749,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               <User className="h-4 w-4" />
               Kundendaten
               {workType === "projekt" && selectedProjectId && (
-                <span className="text-xs font-normal text-muted-foreground">(aus Projekt übernommen)</span>
+                <span className="text-sm font-normal text-muted-foreground">(aus Projekt übernommen)</span>
               )}
             </h3>
             <div className="space-y-3">
@@ -734,7 +765,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               </div>
               <div>
                 <Label htmlFor="kundeEmail" className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" /> E-Mail (optional)
+                  <Mail className="h-4 w-4" /> E-Mail (optional)
                 </Label>
                 <Input
                   id="kundeEmail"
@@ -746,7 +777,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               </div>
               <div>
                 <Label htmlFor="kundeTelefon" className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" /> Telefon (optional)
+                  <Phone className="h-4 w-4" /> Telefon (optional)
                 </Label>
                 <Input
                   id="kundeTelefon"
@@ -758,7 +789,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               </div>
               <div>
                 <Label htmlFor="kundeAdresse" className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> Adresse (optional)
+                  <MapPin className="h-4 w-4" /> Adresse (optional)
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -794,7 +825,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             <div className="space-y-3">
               {/* KI-Spracheingabe */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
-                <p className="text-xs font-medium text-blue-800 dark:text-blue-200">KI-Spracheingabe: Tätigkeiten und Material diktieren</p>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">KI-Spracheingabe: Tätigkeiten und Material diktieren</p>
                 <VoiceRecorder
                   disabled={saving}
                   onResult={(data) => {

@@ -1173,7 +1173,7 @@ export default function HoursReport() {
                       <FileSpreadsheet className="w-5 h-5 sm:w-6 sm:h-6" />
                       Arbeitszeiterfassung nach Mitarbeitern
                     </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Monatsberichte mit Summen-Aufschlüsselung exportieren</CardDescription>
+                    <CardDescription className="text-sm">Monatsberichte mit Summen-Aufschlüsselung exportieren</CardDescription>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1246,24 +1246,24 @@ export default function HoursReport() {
                 {selectedUserId && employeeBalances && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">ZA-Saldo</p>
+                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">ZA-Saldo</p>
                       <p className={`text-xl font-bold ${employeeBalances.zaBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {employeeBalances.zaBalance >= 0 ? "+" : ""}{employeeBalances.zaBalance.toFixed(1)}h
                       </p>
                     </div>
                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Urlaub übrig</p>
+                      <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Urlaub übrig</p>
                       <p className={`text-xl font-bold ${employeeBalances.vacationBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {employeeBalances.vacationBalance} Tage
                       </p>
-                      <p className="text-[10px] text-muted-foreground">{employeeBalances.vacationUsed} von {employeeBalances.vacationGranted} verbraucht</p>
+                      <p className="text-xs text-muted-foreground">{employeeBalances.vacationUsed} von {employeeBalances.vacationGranted} verbraucht</p>
                     </div>
                     <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">ZA erarbeitet</p>
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium">ZA erarbeitet</p>
                       <p className="text-xl font-bold text-foreground">+{employeeBalances.zaEarned.toFixed(1)}h</p>
                     </div>
                     <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
-                      <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">ZA genommen</p>
+                      <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">ZA genommen</p>
                       <p className="text-xl font-bold text-foreground">-{employeeBalances.zaUsed.toFixed(1)}h</p>
                     </div>
                   </div>
@@ -1410,7 +1410,7 @@ export default function HoursReport() {
                                     <TableCell>
                                       <span className="flex items-center gap-1">
                                         <span>{ortIcon}</span>
-                                        <span className="text-xs">{ortText}</span>
+                                        <span className="text-sm">{ortText}</span>
                                       </span>
                                     </TableCell>
                                     <TableCell className="max-w-[120px] truncate">

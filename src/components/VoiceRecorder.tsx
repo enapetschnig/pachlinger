@@ -137,8 +137,8 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
 
   if (!isSpeechRecognitionSupported()) {
     return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2">
-        <AlertCircle className="w-3.5 h-3.5" />
+      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
+        <AlertCircle className="w-4 h-4" />
         <span>Spracherkennung nicht verfügbar. Bitte Chrome oder Edge verwenden.</span>
       </div>
     );
@@ -197,15 +197,15 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
       {(isRecording || transcript) && !success && (
         <Card className="bg-muted/30">
           <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground mb-1">Transkript:</p>
+            <p className="text-sm text-muted-foreground mb-1">Transkript:</p>
             <p className="text-sm">{transcript || "Sprechen Sie jetzt..."}</p>
           </CardContent>
         </Card>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}

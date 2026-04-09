@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Clock } from "lucide-react";
+import { Check, ChevronsUpDown, Clock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { calculateSuggestedStartTime, calculateWorkTimeRange } from "@/lib/workingHours";
 
 type Project = {
@@ -50,6 +52,7 @@ export const FillRemainingHoursDialog = ({
 }: FillRemainingHoursDialogProps) => {
   const [locationType, setLocationType] = useState<"baustelle" | "werkstatt">("werkstatt");
   const [projectId, setProjectId] = useState("");
+  const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -170,18 +173,44 @@ export const FillRemainingHoursDialog = ({
           {locationType === "baustelle" && (
             <div className="space-y-2">
               <Label>Projekt <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Projekt auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.plz})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={projectSearchOpen} onOpenChange={setProjectSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={projectSearchOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {projectId
+                      ? (() => { const p = projects.find(p => p.id === projectId); return p ? `${p.name} (${p.plz})` : "Projekt suchen..."; })()
+                      : "Projekt suchen..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Name oder PLZ eingeben..." />
+                    <CommandList>
+                      <CommandEmpty>Kein Projekt gefunden.</CommandEmpty>
+                      <CommandGroup>
+                        {projects.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.name} ${p.plz}`}
+                            onSelect={() => {
+                              setProjectId(p.id);
+                              setProjectSearchOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", projectId === p.id ? "opacity-100" : "opacity-0")} />
+                            {p.name} ({p.plz})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
 

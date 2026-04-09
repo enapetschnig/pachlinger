@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, Building2, Hammer, Pencil, Trash2, AlertTriangle, Calendar, Timer } from "lucide-react";
+import { Clock, Building2, Hammer, Pencil, Trash2, AlertTriangle, Calendar, Timer, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +47,7 @@ const MyHours = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [zaSaldo, setZaSaldo] = useState({ earned: 0, adjustments: 0, used: 0, balance: 0 });
   const [vacationSaldo, setVacationSaldo] = useState({ granted: 0, used: 0, balance: 0 });
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchEntries();
@@ -360,7 +361,7 @@ const MyHours = () => {
                   <span className="text-muted-foreground">Gesamt: </span>
                   <span className="font-bold text-lg text-primary">{totalHours.toFixed(2)} Std.</span>
                 </div>
-                <span className="text-xs text-muted-foreground">MO-DO: 9,625h / Tag</span>
+                <span className="text-sm text-muted-foreground">MO-DO: 9,625h / Tag</span>
               </div>
             </div>
 
@@ -369,118 +370,275 @@ const MyHours = () => {
                 Keine Einträge für {new Date(selectedMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
               </p>
             ) : (
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Datum</TableHead>
-                      <TableHead>Ort</TableHead>
-                      <TableHead>Projekt</TableHead>
-                      <TableHead>Tätigkeit</TableHead>
-                      <TableHead colSpan={2} className="text-center">Vormittag</TableHead>
-                      <TableHead className="text-center">Pause</TableHead>
-                      <TableHead colSpan={2} className="text-center">Nachmittag</TableHead>
-                      <TableHead className="text-right">Stunden</TableHead>
-                      <TableHead className="text-right">Aktionen</TableHead>
-                    </TableRow>
-                    <TableRow>
-                      <TableHead></TableHead>
-                      <TableHead></TableHead>
-                      <TableHead></TableHead>
-                      <TableHead></TableHead>
-                      <TableHead className="text-center">Beginn</TableHead>
-                      <TableHead className="text-center">Ende</TableHead>
-                      <TableHead className="text-center">von - bis</TableHead>
-                      <TableHead className="text-center">Beginn</TableHead>
-                      <TableHead className="text-center">Ende</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.map((entry) => (
-                      <TableRow key={entry.id} className={isAbsenceEntry(entry) ? "bg-muted/30" : ""}>
-                        <TableCell className="font-medium whitespace-nowrap">
-                          {new Date(entry.datum).toLocaleDateString("de-DE")}
-                        </TableCell>
-                        <TableCell>
-                          {isAbsenceEntry(entry) ? (
-                            <Badge variant="secondary" className="text-xs">
-                              {entry.taetigkeit}
-                            </Badge>
-                          ) : (
-                            <div className="flex items-center gap-2 whitespace-nowrap">
-                              {entry.location_type === 'werkstatt' ? (
-                                <>
-                                  <Hammer className="w-4 h-4 text-muted-foreground" />
-                                  <span>Werkstatt</span>
-                                </>
-                              ) : entry.location_type === 'regie' ? (
-                                <>
-                                  <Building2 className="w-4 h-4 text-muted-foreground" />
-                                  <span>Arbeitsbericht</span>
-                                </>
+              <>
+                {/* Mobile: Card Layout */}
+                <div className="sm:hidden space-y-2">
+                  {entries.map((entry) => {
+                    const isAbsence = isAbsenceEntry(entry);
+                    const isExpanded = expandedCards.has(entry.id);
+                    const toggleExpand = () => {
+                      setExpandedCards(prev => {
+                        const next = new Set(prev);
+                        if (next.has(entry.id)) next.delete(entry.id);
+                        else next.add(entry.id);
+                        return next;
+                      });
+                    };
+                    const projectName = isAbsence ? entry.taetigkeit : (entry.location_type === 'regie' ? 'Arbeitsbericht' : (entry.projects?.name || entry.taetigkeit));
+                    const timeRange = (!isAbsence && entry.start_time && entry.end_time)
+                      ? `${entry.start_time.substring(0, 5)} - ${entry.end_time.substring(0, 5)}`
+                      : null;
+
+                    return (
+                      <div
+                        key={entry.id}
+                        className={`rounded-lg border p-3 ${isAbsence ? 'bg-amber-50 dark:bg-amber-950/20' : 'bg-background'}`}
+                      >
+                        {/* Tappable summary */}
+                        <button
+                          type="button"
+                          className="w-full text-left"
+                          onClick={toggleExpand}
+                        >
+                          {/* Top row: Date + Hours */}
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-sm">
+                              {new Date(entry.datum).toLocaleDateString("de-DE", { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold text-primary">
+                                {entry.stunden.toFixed(2)} h
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
                               ) : (
-                                <>
-                                  <Building2 className="w-4 h-4 text-muted-foreground" />
-                                  <span>Baustelle</span>
-                                </>
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Middle: Project + Location */}
+                          <div className="flex items-center gap-2 mt-1">
+                            {isAbsence ? (
+                              <Badge variant="secondary" className="text-xs">
+                                {entry.taetigkeit}
+                              </Badge>
+                            ) : (
+                              <>
+                                <span className="text-sm truncate max-w-[60%]">{projectName}</span>
+                                <Badge variant="outline" className="text-xs shrink-0 flex items-center gap-1">
+                                  {entry.location_type === 'werkstatt' ? (
+                                    <><Hammer className="w-3 h-3" /> Werkstatt</>
+                                  ) : entry.location_type === 'regie' ? (
+                                    <><Building2 className="w-3 h-3" /> Regie</>
+                                  ) : (
+                                    <><Building2 className="w-3 h-3" /> Baustelle</>
+                                  )}
+                                </Badge>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Bottom row: Time range + break info */}
+                          {!isAbsence && (
+                            <div className="flex items-center gap-3 mt-1">
+                              {timeRange && (
+                                <span className="text-xs text-muted-foreground font-mono">{timeRange}</span>
+                              )}
+                              {entry.has_lunch_break && (
+                                <span className="text-xs text-muted-foreground">Mittagspause</span>
                               )}
                             </div>
                           )}
+                        </button>
+
+                        {/* Expanded details */}
+                        {isExpanded && (
+                          <div className="mt-3 pt-3 border-t space-y-2 text-sm">
+                            {!isAbsence && (
+                              <>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">Beginn</span>
+                                    <p className="font-mono">{entry.start_time?.substring(0, 5) || '-'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">Ende</span>
+                                    <p className="font-mono">{entry.end_time?.substring(0, 5) || '-'}</p>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">Vormittagspause</span>
+                                    <p>{entry.has_breakfast_break ? 'Ja (09:00-09:15)' : 'Nein'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground text-xs">Mittagspause</span>
+                                    <p>{entry.has_lunch_break ? `Ja (${formatPauseTime(entry)})` : 'Nein'}</p>
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground text-xs">Tätigkeit</span>
+                                  <p>{entry.taetigkeit}</p>
+                                </div>
+                              </>
+                            )}
+                            {entry.notizen && (
+                              <div>
+                                <span className="text-muted-foreground text-xs">Notizen</span>
+                                <p>{entry.notizen}</p>
+                              </div>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingEntry(entry);
+                                  setShowEditDialog(true);
+                                }}
+                                disabled={!isCurrentMonth(entry.datum)}
+                                className="h-8 flex-1"
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Bearbeiten
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteEntry(entry.id)}
+                                disabled={!isCurrentMonth(entry.datum)}
+                                className="h-8"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Mobile footer total */}
+                  <div className="rounded-lg border bg-muted/50 p-3 flex justify-between items-center">
+                    <span className="font-semibold text-sm">Gesamtstunden</span>
+                    <span className="font-bold text-lg text-primary">{totalHours.toFixed(2)} h</span>
+                  </div>
+                </div>
+
+                {/* Desktop: Table Layout */}
+                <div className="hidden sm:block rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Datum</TableHead>
+                        <TableHead>Ort</TableHead>
+                        <TableHead>Projekt</TableHead>
+                        <TableHead>Tätigkeit</TableHead>
+                        <TableHead colSpan={2} className="text-center">Vormittag</TableHead>
+                        <TableHead className="text-center">Pause</TableHead>
+                        <TableHead colSpan={2} className="text-center">Nachmittag</TableHead>
+                        <TableHead className="text-right">Stunden</TableHead>
+                        <TableHead className="text-right">Aktionen</TableHead>
+                      </TableRow>
+                      <TableRow>
+                        <TableHead></TableHead>
+                        <TableHead></TableHead>
+                        <TableHead></TableHead>
+                        <TableHead></TableHead>
+                        <TableHead className="text-center">Beginn</TableHead>
+                        <TableHead className="text-center">Ende</TableHead>
+                        <TableHead className="text-center">von - bis</TableHead>
+                        <TableHead className="text-center">Beginn</TableHead>
+                        <TableHead className="text-center">Ende</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {entries.map((entry) => (
+                        <TableRow key={entry.id} className={isAbsenceEntry(entry) ? "bg-muted/30" : ""}>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {new Date(entry.datum).toLocaleDateString("de-DE")}
+                          </TableCell>
+                          <TableCell>
+                            {isAbsenceEntry(entry) ? (
+                              <Badge variant="secondary" className="text-xs">
+                                {entry.taetigkeit}
+                              </Badge>
+                            ) : (
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                {entry.location_type === 'werkstatt' ? (
+                                  <>
+                                    <Hammer className="w-4 h-4 text-muted-foreground" />
+                                    <span>Werkstatt</span>
+                                  </>
+                                ) : entry.location_type === 'regie' ? (
+                                  <>
+                                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                                    <span>Arbeitsbericht</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                                    <span>Baustelle</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>{isAbsenceEntry(entry) ? '-' : (entry.location_type === 'regie' ? 'Arbeitsbericht' : (entry.projects?.name || '-'))}</TableCell>
+                          <TableCell>{entry.taetigkeit}</TableCell>
+                          <TableCell className="text-center">
+                            {isAbsenceEntry(entry) ? '-' : (entry.start_time?.substring(0, 5) || '-')}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isAbsenceEntry(entry) ? '-' : calculateMorningEnd(entry)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isAbsenceEntry(entry) ? '-' : formatPauseTime(entry)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isAbsenceEntry(entry) ? '-' : calculateAfternoonStart(entry)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isAbsenceEntry(entry) ? '-' : (
+                              entry.pause_minutes && entry.pause_minutes > 0
+                                ? entry.end_time?.substring(0, 5) || '-'
+                                : '-'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {entry.stunden.toFixed(2)} h
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingEntry(entry);
+                                setShowEditDialog(true);
+                              }}
+                              disabled={!isCurrentMonth(entry.datum)}
+                              className="h-8"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-right font-semibold">
+                          Gesamtstunden:
                         </TableCell>
-                        <TableCell>{isAbsenceEntry(entry) ? '-' : (entry.location_type === 'regie' ? 'Arbeitsbericht' : (entry.projects?.name || '-'))}</TableCell>
-                        <TableCell>{entry.taetigkeit}</TableCell>
-                        <TableCell className="text-center">
-                          {isAbsenceEntry(entry) ? '-' : (entry.start_time?.substring(0, 5) || '-')}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {isAbsenceEntry(entry) ? '-' : calculateMorningEnd(entry)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {isAbsenceEntry(entry) ? '-' : formatPauseTime(entry)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {isAbsenceEntry(entry) ? '-' : calculateAfternoonStart(entry)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {isAbsenceEntry(entry) ? '-' : (
-                            entry.pause_minutes && entry.pause_minutes > 0 
-                              ? entry.end_time?.substring(0, 5) || '-'
-                              : '-'
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {entry.stunden.toFixed(2)} h
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingEntry(entry);
-                              setShowEditDialog(true);
-                            }}
-                            disabled={!isCurrentMonth(entry.datum)}
-                            className="h-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                        <TableCell className="text-right font-bold text-lg">
+                          {totalHours.toFixed(2)} h
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-right font-semibold">
-                        Gesamtstunden:
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-lg">
-                        {totalHours.toFixed(2)} h
-                      </TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
-              </div>
+                    </TableFooter>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -534,7 +692,7 @@ const MyHours = () => {
                     />
                     <span className="text-sm text-muted-foreground">Stunden</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Tagessoll: {getTotalWorkingHours(new Date(editingEntry.datum))}h
                   </p>
                 </div>
@@ -624,7 +782,7 @@ const MyHours = () => {
                   </Label>
                 </div>
                 {editingEntry.has_lunch_break && (
-                  <p className="text-xs text-muted-foreground ml-6">
+                  <p className="text-sm text-muted-foreground ml-6">
                     Pause: {LUNCH_BREAK_START} - {LUNCH_BREAK_END} ({LUNCH_BREAK_MINUTES} Min.)
                   </p>
                 )}

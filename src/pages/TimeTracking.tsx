@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer, Info, Coffee, UtensilsCrossed, Copy, Zap } from "lucide-react";
+import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Timer, Info, Coffee, UtensilsCrossed, Copy, Zap, Check, ChevronsUpDown } from "lucide-react";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
 import { FillRemainingHoursDialog } from "@/components/FillRemainingHoursDialog";
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +14,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 import { useToast } from "@/hooks/use-toast";
 import { useBreakValidation } from "@/hooks/useBreakValidation";
@@ -92,6 +95,7 @@ const TimeTracking = () => {
   const [creatingProject, setCreatingProject] = useState(false);
   const [submittingAbsence, setSubmittingAbsence] = useState(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+  const [projectSearchOpen, setProjectSearchOpen] = useState<Record<string, boolean>>({});
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectPlz, setNewProjectPlz] = useState("");
   const [newProjectAddress, setNewProjectAddress] = useState("");
@@ -765,15 +769,15 @@ const TimeTracking = () => {
               {/* Arbeitszeit-Info */}
               <div className="rounded-lg border bg-card p-4">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">{getWeeklyTargetHours()}h Wochensoll</Badge>
-                  <span className="text-xs text-muted-foreground">MO-DO: {DAILY_WORK_HOURS}h (07:00-17:08)</span>
+                  <Badge variant="secondary" className="text-sm">{getWeeklyTargetHours()}h Wochensoll</Badge>
+                  <span className="text-sm text-muted-foreground">MO-DO: {DAILY_WORK_HOURS}h (07:00-17:08)</span>
                 </div>
               </div>
 
               {/* Hinweis: Mehrere Baustellen */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
                 <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                <p className="text-xs text-blue-800 dark:text-blue-200">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   Bei mehreren Baustellen bitte verschiedene Zeitblöcke eintragen. Die Vormittagspause (09:00-09:15) zählt als Arbeitszeit, die Mittagspause (12:00-12:30) wird abgezogen.
                 </p>
               </div>
@@ -820,7 +824,7 @@ const TimeTracking = () => {
                   {/* Plantafel-Hinweis */}
                   {todayAssignments.length > 0 && (
                     <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                      <p className="text-xs font-medium text-green-800 dark:text-green-200 mb-1">Heutige Einteilung (Plantafel):</p>
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">Heutige Einteilung (Plantafel):</p>
                       <div className="flex flex-wrap gap-1.5">
                         {todayAssignments.map((a, i) => (
                           <Badge key={i} variant="secondary" className="text-xs">{a.project_name}</Badge>
@@ -888,13 +892,58 @@ const TimeTracking = () => {
                         {block.locationType === "baustelle" && (
                           <div className="space-y-2">
                             <Label>Projekt <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                            <Select value={block.projectId} onValueChange={(value) => value === "new" ? (setPendingBlockIdForNewProject(block.id), setShowNewProjectDialog(true)) : updateBlock(block.id, { projectId: value })}>
-                              <SelectTrigger><SelectValue placeholder="Projekt auswählen" /></SelectTrigger>
-                              <SelectContent>
-                                {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name} ({project.plz})</SelectItem>)}
-                                <SelectItem value="new" className="text-primary font-semibold"><div className="flex items-center gap-2"><Plus className="w-4 h-4" />Neues Projekt erstellen</div></SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Popover
+                              open={projectSearchOpen[block.id] || false}
+                              onOpenChange={(open) => setProjectSearchOpen(prev => ({ ...prev, [block.id]: open }))}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={projectSearchOpen[block.id] || false}
+                                  className="w-full justify-between font-normal"
+                                >
+                                  {block.projectId
+                                    ? (() => { const p = projects.find(p => p.id === block.projectId); return p ? `${p.name} (${p.plz})` : "Projekt suchen..."; })()
+                                    : "Projekt suchen..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="Name oder PLZ eingeben..." />
+                                  <CommandList>
+                                    <CommandEmpty>Kein Projekt gefunden.</CommandEmpty>
+                                    <CommandGroup>
+                                      {projects.map((project) => (
+                                        <CommandItem
+                                          key={project.id}
+                                          value={`${project.name} ${project.plz}`}
+                                          onSelect={() => {
+                                            updateBlock(block.id, { projectId: project.id });
+                                            setProjectSearchOpen(prev => ({ ...prev, [block.id]: false }));
+                                          }}
+                                        >
+                                          <Check className={cn("mr-2 h-4 w-4", block.projectId === project.id ? "opacity-100" : "opacity-0")} />
+                                          {project.name} ({project.plz})
+                                        </CommandItem>
+                                      ))}
+                                      <CommandItem
+                                        value="__new__"
+                                        onSelect={() => {
+                                          setPendingBlockIdForNewProject(block.id);
+                                          setShowNewProjectDialog(true);
+                                          setProjectSearchOpen(prev => ({ ...prev, [block.id]: false }));
+                                        }}
+                                      >
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Neues Projekt erstellen
+                                      </CommandItem>
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         )}
 
@@ -928,7 +977,7 @@ const TimeTracking = () => {
 
                         {/* Pausen */}
                         <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-                          <p className="text-xs font-medium text-muted-foreground">Pausen</p>
+                          <p className="text-sm font-medium text-muted-foreground">Pausen</p>
 
                           {/* Vormittagspause */}
                           <div className="flex items-center gap-3">
@@ -943,10 +992,10 @@ const TimeTracking = () => {
                             <label htmlFor={`breakfast-${block.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
                               <Coffee className="w-3.5 h-3.5 text-amber-600" />
                               <span>Vormittagspause ({BREAKFAST_BREAK_START}-{BREAKFAST_BREAK_END})</span>
-                              <Badge variant="outline" className="text-[10px]">zählt als Arbeitszeit</Badge>
+                              <Badge variant="outline" className="text-xs">zählt als Arbeitszeit</Badge>
                             </label>
                             {(breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak)) && (
-                              <span className="text-[10px] text-muted-foreground ml-auto">bereits eingetragen</span>
+                              <span className="text-xs text-muted-foreground ml-auto">bereits eingetragen</span>
                             )}
                           </div>
 
@@ -963,10 +1012,10 @@ const TimeTracking = () => {
                             <label htmlFor={`lunch-${block.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
                               <UtensilsCrossed className="w-3.5 h-3.5 text-orange-600" />
                               <span>Mittagspause ({LUNCH_BREAK_START}-{LUNCH_BREAK_END})</span>
-                              <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">wird abgezogen</Badge>
+                              <Badge variant="outline" className="text-xs text-destructive border-destructive/30">wird abgezogen</Badge>
                             </label>
                             {(lunchTaken || (lunchInBlocks && !block.hasLunchBreak)) && (
-                              <span className="text-[10px] text-muted-foreground ml-auto">bereits eingetragen</span>
+                              <span className="text-xs text-muted-foreground ml-auto">bereits eingetragen</span>
                             )}
                           </div>
                         </div>
