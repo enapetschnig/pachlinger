@@ -303,18 +303,7 @@ export default function Index() {
 
       {/* Main Content */}
       <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
-            {isAdmin ? "Admin Dashboard" : "Mein Dashboard"}
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {isAdmin 
-              ? "Verwaltung aller Projekte und Mitarbeiter" 
-              : "Zeiterfassung und Projektdokumentation"}
-          </p>
-        </div>
-
-        {/* Meine Einteilung - ganz oben */}
+        {/* Meine Einteilung - allererstes Element */}
         {assignments.length > 0 && (
           <div className="mb-6">
             <h2 className="text-lg sm:text-xl font-bold mb-3 flex items-center gap-2">
@@ -383,6 +372,17 @@ export default function Index() {
             </div>
           </div>
         )}
+
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
+            {isAdmin ? "Admin Dashboard" : "Mein Dashboard"}
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {isAdmin
+              ? "Verwaltung aller Projekte und Mitarbeiter"
+              : "Zeiterfassung und Projektdokumentation"}
+          </p>
+        </div>
 
         {/* Main Actions Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">

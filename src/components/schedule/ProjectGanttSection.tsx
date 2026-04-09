@@ -3,11 +3,12 @@ import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { isSameDay, parseISO } from "date-fns";
 import { GanttBar } from "./GanttBar";
 import { getProjectDayRanges, isCompanyHoliday } from "./scheduleUtils";
-import type { Assignment, Project, CompanyHoliday } from "./scheduleTypes";
+import type { Assignment, Project, CompanyHoliday, Profile } from "./scheduleTypes";
 
 interface Props {
   projects: Project[];
   assignments: Assignment[];
+  profiles: Profile[];
   days: Date[];
   holidays: CompanyHoliday[];
   onProjectDayClick?: (projectId: string, datum: string) => void;
@@ -16,11 +17,17 @@ interface Props {
 export function ProjectGanttSection({
   projects,
   assignments,
+  profiles,
   days,
   holidays,
   onProjectDayClick,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+
+  const getProfileName = (userId: string): string => {
+    const p = profiles.find((pr) => pr.id === userId);
+    return p ? `${p.vorname} ${p.nachname.charAt(0)}.` : "?";
+  };
 
   // Only show projects that have assignments this period
   const activeProjectIds = [...new Set(assignments.map((a) => a.project_id))];
@@ -73,9 +80,7 @@ export function ProjectGanttSection({
                     isSameDay(parseISO(a.datum), day)
                 );
                 const workerCount = dayAssignments.length;
-                const range = ranges.find(
-                  (r) => dayIdx >= r.startIdx && dayIdx <= r.endIdx
-                );
+                const workerNames = dayAssignments.map((a) => getProfileName(a.user_id));
 
                 return (
                   <div
@@ -87,7 +92,7 @@ export function ProjectGanttSection({
                     {workerCount > 0 && !holiday && (
                       <GanttBar
                         projectId={project.id}
-                        label={`${workerCount} MA`}
+                        label={workerNames.join(", ")}
                         badge={workerCount}
                         onClick={
                           onProjectDayClick

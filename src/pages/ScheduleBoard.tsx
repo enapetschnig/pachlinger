@@ -137,33 +137,12 @@ export default function ScheduleBoard() {
       }
     }
 
-    // Sync to Google Calendar (fire and forget)
-    if (assignmentId) {
-      const sbUrl = "https://tomvlelicqsfkxzppgrc.supabase.co";
-      fetch(`${sbUrl}/functions/v1/sync-assignment-to-calendar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "sync", assignment_id: assignmentId }),
-      }).then(async (res) => {
-        if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          toast({ variant: "destructive", title: "Kalender-Sync fehlgeschlagen", description: errText.slice(0, 200) });
-        }
-      }).catch(() => {});
-    }
   };
 
   const handleRemove = async (uid: string, date: Date) => {
     const existing = getAssignmentForDay(assignments, uid, date);
     if (!existing) return;
 
-    // Delete from Google Calendar first (fire and forget)
-    const sbUrl = (supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL || "https://tomvlelicqsfkxzppgrc.supabase.co";
-    fetch(`${sbUrl}/functions/v1/sync-assignment-to-calendar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete", assignment_id: existing.id }),
-    }).catch((e) => console.error("Calendar delete failed:", e));
 
     const { error } = await supabase
       .from("worker_assignments")
@@ -375,9 +354,9 @@ export default function ScheduleBoard() {
               <span className="hidden sm:inline">Zurück</span>
             </Button>
             <img
-              src="/schafferhofer-logo.svg"
-              alt="Schafferhofer Bau"
-              className="h-10 w-10 sm:h-14 sm:w-14 cursor-pointer hover:opacity-80 transition-opacity object-contain"
+              src="/fasching-logo.jpg"
+              alt="FASCHING Gebäudetechnik"
+              className="h-8 sm:h-10 cursor-pointer hover:opacity-80 transition-opacity object-contain"
               onClick={() => navigate("/")}
             />
           </div>
@@ -428,6 +407,7 @@ export default function ScheduleBoard() {
                 <ProjectGanttSection
                   projects={projects}
                   assignments={assignments}
+                  profiles={profiles}
                   days={weekDays}
                   holidays={companyHolidays}
                   onProjectDayClick={
