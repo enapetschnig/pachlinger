@@ -50,8 +50,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const { toast } = useToast();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
-  const [directHoursMode, setDirectHoursMode] = useState(false);
-  const [directHours, setDirectHours] = useState("");
   const [workType, setWorkType] = useState<"projekt" | "kunde">("kunde");
   const [hasBreakfastBreak, setHasBreakfastBreak] = useState(false);
   const [hasLunchBreak, setHasLunchBreak] = useState(false);
@@ -88,13 +86,13 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
 
   // Auto-check breaks based on time range
   useEffect(() => {
-    if (!directHoursMode) {
+    {
       const spansBreakfast = blockSpansBreakfast(formData.startTime, formData.endTime);
       const spansLunch = blockSpansLunch(formData.startTime, formData.endTime);
       if (!breakfastTaken) setHasBreakfastBreak(spansBreakfast);
       if (!lunchTaken) setHasLunchBreak(spansLunch);
     }
-  }, [formData.startTime, formData.endTime, breakfastTaken, lunchTaken, directHoursMode]);
+  }, [formData.startTime, formData.endTime, breakfastTaken, lunchTaken]);
 
   useEffect(() => {
     fetchProjects();
@@ -606,16 +604,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 <Calendar className="h-4 w-4" />
                 Datum & Uhrzeit
               </h3>
-              <Button
-                type="button"
-                variant={directHoursMode ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDirectHoursMode(!directHoursMode)}
-                className="text-sm"
-              >
-                <Clock className="h-4 w-4 mr-1" />
-                {directHoursMode ? "Beginn/Ende" : "Stunden direkt"}
-              </Button>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
@@ -628,46 +616,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                   required
                 />
               </div>
-              {directHoursMode ? (
-                <>
-                  <div className="col-span-2">
-                    <Label htmlFor="directHours">Stunden</Label>
-                    <Input
-                      id="directHours"
-                      type="number"
-                      step="0.25"
-                      min="0.25"
-                      max="12"
-                      value={directHours}
-                      onChange={(e) => {
-                        setDirectHours(e.target.value);
-                        const hours = parseFloat(e.target.value) || 0;
-                        // Auto-calculate start/end from 07:00
-                        const startMinutes = 7 * 60;
-                        let endMinutes = startMinutes + hours * 60;
-
-                        // Regie: keine automatische Mittagspause
-                        const pauseMinutes = 0;
-
-                        const endH = Math.floor(endMinutes / 60);
-                        const endM = Math.round(endMinutes % 60);
-                        setFormData({
-                          ...formData,
-                          startTime: "07:00",
-                          endTime: `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`,
-                          pauseMinutes,
-                        });
-                      }}
-                      placeholder="z.B. 2.5"
-                      className="text-center text-lg font-mono"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Berechnet: {formData.startTime} – {formData.endTime}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
                   <div>
                     <Label htmlFor="startTime">Startzeit</Label>
                     <Input
@@ -688,8 +636,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                       required
                     />
                   </div>
-                </>
-              )}
               <div>
                 <Label>Pause von</Label>
                 <Input
@@ -717,7 +663,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             </div>
 
             {/* Break Checkboxes */}
-            {!directHoursMode && (
               <div className="space-y-2 pt-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -748,7 +693,6 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                   </Label>
                 </div>
               </div>
-            )}
           </div>
 
           {/* Customer Section */}

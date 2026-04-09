@@ -37,8 +37,9 @@ export const DAILY_WORK_MINUTES = 577.5; // 9h 37.5min
 export const DAILY_WORK_HOURS = 9.625; // 9h 37.5min
 export const WEEKLY_TARGET_HOURS = 38.5;
 export const DEFAULT_START_TIME = "07:00";
-// 07:00 + 9h37.5min Arbeit + 30min Mittagspause = 17:07:30 → aufgerundet auf 17:08
-export const DEFAULT_END_TIME = "17:08";
+// 07:00 + 9h37.5min Arbeit + 30min Mittagspause = 17:07:30
+// Anzeige als 17:07 (abgerundet, da kein Sekundenfeld)
+export const DEFAULT_END_TIME = "17:07";
 
 export function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
@@ -197,7 +198,7 @@ export function calculateWorkTimeRange(
 
 /**
  * Gibt Standard-Arbeitszeiten für einen Tag zurück
- * MO-DO: 07:00-17:08, mit Vormittags- und Mittagspause
+ * MO-DO: 07:00-17:07, mit Vormittags- und Mittagspause
  */
 export function getDefaultWorkTimes(date: Date): WorkTimePreset | null {
   if (!isWorkingDay(date)) return null;
