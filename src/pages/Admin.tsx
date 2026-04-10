@@ -1693,10 +1693,8 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
         if (hasAbsenceOnly) return;
 
         if (isWorkingDay(dateObj)) {
-          // MO-DO: overtime is anything over 9.625h
-          if (info.total > DAILY_WORK_HOURS) {
-            accrued += info.total - DAILY_WORK_HOURS;
-          }
+          // MO-DO: Differenz zum Tagessoll (positiv = Überstunden, negativ = Minusstunden)
+          accrued += info.total - DAILY_WORK_HOURS;
         } else {
           // FR/SA/SO: all worked hours count as overtime
           accrued += info.total;

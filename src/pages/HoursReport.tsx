@@ -277,14 +277,14 @@ export default function HoursReport() {
         }
       });
 
-      // Calculate overtime per day
+      // Calculate overtime per day (positive = Überstunden, negative = Minusstunden)
       Object.entries(dayHours).forEach(([datum, hours]) => {
         const date = new Date(datum);
         const target = getNormalWorkingHours(date);
-        if (hours > target && target > 0) {
-          zaEarned += hours - target;
-        } else if (target === 0 && hours > 0) {
+        if (target === 0 && hours > 0) {
           zaEarned += hours; // Weekend/Friday work = all overtime
+        } else if (target > 0) {
+          zaEarned += hours - target; // Can be negative (Minusstunden)
         }
       });
 
@@ -675,7 +675,8 @@ export default function HoursReport() {
 
   const calculateOvertime = (date: Date, totalHours: number): number => {
     const normalHours = getNormalWorkingHours(date);
-    return Math.max(0, totalHours - normalHours);
+    if (normalHours === 0) return totalHours; // Nicht-Arbeitstag
+    return totalHours - normalHours; // Kann negativ sein (Minusstunden)
   };
 
   const calculateLunchBreak = (entry: TimeEntry) => {
@@ -824,7 +825,7 @@ export default function HoursReport() {
             lunchBreak?.end || "",
             entry.end_time?.substring(0, 5) || "",
             Number(entry.stunden || 0).toFixed(2),
-            overtime > 0 ? overtime.toFixed(2) : "",
+            overtime !== 0 ? (overtime > 0 ? "+" : "") + overtime.toFixed(2) : "",
             ortText,
             projektName,
             entry.taetigkeit,
@@ -1219,9 +1220,11 @@ export default function HoursReport() {
                       </p>
                       <p className="text-xs text-muted-foreground">{employeeBalances.vacationUsed} von {employeeBalances.vacationGranted} verbraucht</p>
                     </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                      <p className="text-sm text-green-600 dark:text-green-400 font-medium">ZA erarbeitet</p>
-                      <p className="text-xl font-bold text-foreground">+{employeeBalances.zaEarned.toFixed(1)}h</p>
+                    <div className={`rounded-lg p-3 border ${employeeBalances.zaEarned >= 0 ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"}`}>
+                      <p className={`text-sm font-medium ${employeeBalances.zaEarned >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>Über-/Minusstunden</p>
+                      <p className={`text-xl font-bold ${employeeBalances.zaEarned >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {employeeBalances.zaEarned >= 0 ? "+" : ""}{employeeBalances.zaEarned.toFixed(1)}h
+                      </p>
                     </div>
                     <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
                       <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">ZA genommen</p>
@@ -1362,9 +1365,9 @@ export default function HoursReport() {
                                       )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      {overtime > 0 && (
-                                        <span className="font-medium text-foreground">
-                                          +{overtime.toFixed(2)} h
+                                      {overtime !== 0 && (
+                                        <span className={`font-medium ${overtime > 0 ? "text-green-600" : "text-red-600"}`}>
+                                          {overtime > 0 ? "+" : ""}{overtime.toFixed(2)} h
                                         </span>
                                       )}
                                     </TableCell>

@@ -136,12 +136,13 @@ export function blockSpansLunch(startTime: string, endTime: string): boolean {
 }
 
 /**
- * Berechnet Überstunden für einen Tag (über 9h37.5min)
+ * Berechnet die Differenz zum Tagessoll (positiv = Überstunden, negativ = Minusstunden)
+ * MO-DO: Differenz zu 9.625h, FR/SA/SO: alles = Überstunde
  */
 export function calculateDailyOvertime(date: Date, totalWorkedHours: number): number {
   const target = getNormalWorkingHours(date);
   if (target === 0) return totalWorkedHours; // Freitag/Wochenende = alles ist Überstunde
-  return Math.max(0, totalWorkedHours - target);
+  return totalWorkedHours - target;
 }
 
 // ===== Legacy-Kompatibilität =====

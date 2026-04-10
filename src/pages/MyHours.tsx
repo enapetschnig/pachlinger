@@ -291,8 +291,8 @@ const MyHours = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Angesammelt (Überstunden)</span>
-                <span className="text-green-600">+{zaSaldo.earned.toFixed(1)} h</span>
+                <span className="text-muted-foreground">Über-/Minusstunden</span>
+                <span className={zaSaldo.earned >= 0 ? "text-green-600" : "text-red-600"}>{zaSaldo.earned >= 0 ? "+" : ""}{zaSaldo.earned.toFixed(1)} h</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Korrekturen</span>
