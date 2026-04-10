@@ -49,6 +49,7 @@ const Projects = () => {
     beschreibung: "",
     adresse: "",
     plz: "",
+    kunde_name: "",
   });
   const [quickUploadProject, setQuickUploadProject] = useState<{
     projectId: string;
@@ -166,6 +167,7 @@ const Projects = () => {
         beschreibung: newProject.beschreibung.trim() || null,
         adresse: newProject.adresse.trim() || null,
         plz: newProject.plz.trim(),
+        kunde_name: newProject.kunde_name.trim() || null,
       });
 
     if (error) {
@@ -179,7 +181,7 @@ const Projects = () => {
         title: "Erfolg",
         description: "Projekt wurde erstellt",
       });
-      setNewProject({ name: "", beschreibung: "", adresse: "", plz: "" });
+      setNewProject({ name: "", beschreibung: "", adresse: "", plz: "", kunde_name: "" });
       setShowNewDialog(false);
       fetchProjects();
     }
@@ -454,6 +456,15 @@ const Projects = () => {
                       onPlzFound={(plz) => setNewProject(prev => ({ ...prev, plz: plz }))}
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="kunde_name">Kundenname</Label>
+                  <Input
+                    id="kunde_name"
+                    value={newProject.kunde_name}
+                    onChange={(e) => setNewProject({ ...newProject, kunde_name: e.target.value })}
+                    placeholder="z.B. Mustermann GmbH"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="beschreibung">Beschreibung</Label>
