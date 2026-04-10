@@ -244,30 +244,39 @@ export default function HoursReport() {
 
   const fetchEmployeeBalances = async (userId: string) => {
     try {
-      // ZA: Calculate from overtime
-      const { data: allEntries } = await supabase
+      // Monatsbereich berechnen
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const endDate = `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`;
+
+      // Nur Einträge des ausgewählten Monats laden
+      const { data: monthEntries } = await supabase
         .from("time_entries")
         .select("datum, stunden, taetigkeit")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .gte("datum", startDate)
+        .lte("datum", endDate);
 
+      // Korrekturen des Monats
       const { data: zaAdj } = await supabase
         .from("za_adjustments")
-        .select("hours")
-        .eq("user_id", userId);
+        .select("hours, created_at")
+        .eq("user_id", userId)
+        .gte("created_at", `${startDate}T00:00:00`)
+        .lte("created_at", `${endDate}T23:59:59`);
 
       const { data: vacAdj } = await supabase
         .from("vacation_adjustments")
-        .select("days")
-        .eq("user_id", userId);
+        .select("days, created_at")
+        .eq("user_id", userId)
+        .gte("created_at", `${startDate}T00:00:00`)
+        .lte("created_at", `${endDate}T23:59:59`);
 
       let zaEarned = 0;
       let zaUsed = 0;
-      let vacationUsed = 0;
       const vacationDates = new Set<string>();
 
-      // Group entries by day for overtime calculation
       const dayHours: Record<string, number> = {};
-      (allEntries || []).forEach((e) => {
+      (monthEntries || []).forEach((e) => {
         if (e.taetigkeit === "Zeitausgleich") {
           zaUsed += Number(e.stunden);
         } else if (e.taetigkeit === "Urlaub") {
@@ -277,14 +286,14 @@ export default function HoursReport() {
         }
       });
 
-      // Calculate overtime per day (positive = Überstunden, negative = Minusstunden)
+      // Über-/Minusstunden pro Tag
       Object.entries(dayHours).forEach(([datum, hours]) => {
         const date = new Date(datum);
         const target = getNormalWorkingHours(date);
         if (target === 0 && hours > 0) {
-          zaEarned += hours; // Weekend/Friday work = all overtime
+          zaEarned += hours;
         } else if (target > 0) {
-          zaEarned += hours - target; // Can be negative (Minusstunden)
+          zaEarned += hours - target;
         }
       });
 
@@ -292,10 +301,10 @@ export default function HoursReport() {
       const vacationGranted = (vacAdj || []).reduce((sum, a) => sum + Number(a.days), 0);
 
       setEmployeeBalances({
-        zaEarned: Math.round(zaEarned * 100) / 100,
+        zaEarned: Math.round(zaEarned * 1000) / 1000,
         zaAdjustments,
         zaUsed,
-        zaBalance: Math.round((zaEarned + zaAdjustments - zaUsed) * 100) / 100,
+        zaBalance: Math.round((zaEarned + zaAdjustments - zaUsed) * 1000) / 1000,
         vacationGranted,
         vacationUsed: vacationDates.size,
         vacationBalance: vacationGranted - vacationDates.size,
