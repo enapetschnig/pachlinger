@@ -755,10 +755,16 @@ export default function HoursReport() {
       actual: finalizeBreakdown(actualBreakdown),
       noOvertime: finalizeBreakdown(noOvertimeBreakdown),
       totalHours: timeEntries.reduce((sum, entry) => sum + Number(entry.stunden || 0), 0),
-      totalOvertime: timeEntries.reduce((sum, entry) => {
-        const entryDate = parseISO(entry.datum);
-        return sum + calculateOvertime(entryDate, Number(entry.stunden || 0));
-      }, 0),
+      totalOvertime: (() => {
+        // Overtime auf Tagesbasis berechnen, nicht pro Eintrag
+        const dayTotals: Record<string, number> = {};
+        timeEntries.forEach((e) => {
+          dayTotals[e.datum] = (dayTotals[e.datum] || 0) + Number(e.stunden || 0);
+        });
+        return Object.entries(dayTotals).reduce((sum, [datum, hours]) => {
+          return sum + calculateOvertime(parseISO(datum), hours);
+        }, 0);
+      })(),
     };
   }, [timeEntries]);
 
@@ -833,7 +839,9 @@ export default function HoursReport() {
         const displayDay = entryIndex === 0 ? day : "";
 
         if (includeOvertime) {
-          const overtime = calculateOvertime(dayDate, Number(entry.stunden || 0));
+          const isLast = entryIndex === dayEntries.length - 1;
+          const dayTotal = dayEntries.reduce((s, e) => s + Number(e.stunden || 0), 0);
+          const dayOT = isLast ? calculateOvertime(dayDate, dayTotal) : 0;
           worksheetData.push([
             displayDay,
             entry.start_time?.substring(0, 5) || "",
@@ -842,7 +850,7 @@ export default function HoursReport() {
             lunchBreak?.end || "",
             entry.end_time?.substring(0, 5) || "",
             Number(entry.stunden || 0).toFixed(2),
-            overtime !== 0 ? (overtime > 0 ? "+" : "") + overtime.toFixed(2) : "",
+            isLast && dayOT !== 0 ? (dayOT > 0 ? "+" : "") + dayOT.toFixed(2) : "",
             ortText,
             projektName,
             entry.taetigkeit,
@@ -1321,7 +1329,7 @@ export default function HoursReport() {
 
                               return dayEntries.map((entry, entryIndex) => {
                                 const lunchBreak = calculateLunchBreak(entry);
-                                const overtime = calculateOvertime(day.date, Number(entry.stunden || 0));
+                                const dayOvertime = calculateOvertime(day.date, dayTotalHours);
                                 const project = entry.project_id ? projects[entry.project_id] : undefined;
                                 const isRegie = entry.location_type === "regie" || entry.disturbance_id != null;
                                 const ortIcon = isRegie ? "🧾" : entry.location_type === "baustelle" ? "🏗️" : entry.location_type === "werkstatt" ? "🔧" : "";
@@ -1382,9 +1390,9 @@ export default function HoursReport() {
                                       )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      {overtime !== 0 && (
-                                        <span className={`font-medium ${overtime > 0 ? "text-green-600" : "text-red-600"}`}>
-                                          {overtime > 0 ? "+" : ""}{overtime.toFixed(2)} h
+                                      {isLastEntry && dayOvertime !== 0 && (
+                                        <span className={`font-medium ${dayOvertime > 0 ? "text-green-600" : "text-red-600"}`}>
+                                          {dayOvertime > 0 ? "+" : ""}{dayOvertime.toFixed(2)} h
                                         </span>
                                       )}
                                     </TableCell>
