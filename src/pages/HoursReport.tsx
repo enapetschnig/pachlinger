@@ -95,6 +95,10 @@ interface EditableTimeEntry {
   disturbanceIds: string[];
   has_breakfast_break: boolean;
   has_lunch_break: boolean;
+  breakfast_start: string;
+  breakfast_end: string;
+  lunch_start: string;
+  lunch_end: string;
 }
 
 interface EmployeeBalances {
@@ -450,13 +454,17 @@ export default function HoursReport() {
       taetigkeit: entry.taetigkeit || "",
       location_type: entry.location_type || "baustelle",
       project_id: entry.project_id,
-      start_time: entry.start_time?.substring(0, 5) || suggestedStart,
-      end_time: entry.end_time?.substring(0, 5) || "",
+      start_time: entry.start_time?.substring(0, 8) || suggestedStart,
+      end_time: entry.end_time?.substring(0, 8) || "",
       pause_start: entry.pause_start?.substring(0, 5) || "",
       pause_end: entry.pause_end?.substring(0, 5) || "",
       disturbanceIds,
       has_breakfast_break: entry.has_breakfast_break || false,
       has_lunch_break: entry.has_lunch_break || false,
+      breakfast_start: BREAKFAST_BREAK_START,
+      breakfast_end: BREAKFAST_BREAK_END,
+      lunch_start: entry.pause_start?.substring(0, 5) || LUNCH_BREAK_START,
+      lunch_end: entry.pause_end?.substring(0, 5) || LUNCH_BREAK_END,
     });
     setIsEditDialogOpen(true);
   };
@@ -486,90 +494,52 @@ export default function HoursReport() {
   const handleSaveEdit = async () => {
     if (!editingEntry || !selectedUserId || isSavingEdit) return;
 
-    const hours = parseHoursInput(editingEntry.stunden);
+    const isAbsence = isAbsenceType(editingEntry.taetigkeit);
+
+    // Stunden direkt aus Von-Bis berechnen (nicht aus Eingabefeld)
+    let hours: number;
+    if (isAbsence) {
+      hours = parseHoursInput(editingEntry.stunden);
+    } else {
+      const startMin = timeToMinutes(editingEntry.start_time);
+      const endMin = timeToMinutes(editingEntry.end_time);
+      let workMin = endMin - startMin;
+      if (editingEntry.has_lunch_break && editingEntry.lunch_start && editingEntry.lunch_end) {
+        workMin -= Math.max(0, timeToMinutes(editingEntry.lunch_end) - timeToMinutes(editingEntry.lunch_start));
+      }
+      hours = Math.max(0, workMin / 60);
+    }
+
     if (!Number.isFinite(hours) || hours <= 0) {
-      toast({
-        title: "Ungültige Stunden",
-        description: "Bitte gib eine Stundenanzahl größer als 0 ein.",
-        variant: "destructive",
-      });
+      toast({ title: "Ungültige Zeiten", description: "Bitte Von- und Bis-Zeit korrekt eingeben.", variant: "destructive" });
       return;
     }
 
-    const isAbsence = isAbsenceType(editingEntry.taetigkeit);
     const nextLocationType = isAbsence ? "baustelle" : editingEntry.location_type;
     const nextProjectId = isAbsence || nextLocationType !== "baustelle" ? null : editingEntry.project_id;
     const nextDisturbanceIds = !isAbsence && nextLocationType === "regie"
       ? Array.from(new Set(editingEntry.disturbanceIds))
       : [];
 
-    const calculatedTimes = calculateWorkTimeRange(parseISO(editingEntry.datum), hours, editingEntry.start_time || "07:00");
-    if (!calculatedTimes.endTime) {
-      toast({
-        title: "Zeiten konnten nicht berechnet werden",
-        description: "Bitte prüfe die Stundenangabe.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsSavingEdit(true);
 
-    if (!isAbsence) {
-      const { data: siblingEntries, error: overlapError } = await supabase
-        .from("time_entries")
-        .select("id, start_time, end_time, taetigkeit, location_type")
-        .eq("user_id", selectedUserId)
-        .eq("datum", editingEntry.datum)
-        .neq("id", editingEntry.id);
-
-      if (overlapError) {
-        toast({
-          title: "Prüfung fehlgeschlagen",
-          description: overlapError.message,
-          variant: "destructive",
-        });
-        setIsSavingEdit(false);
-        return;
-      }
-
-      const isEditingRegie = nextLocationType === "regie";
-      const newStartMinutes = timeToMinutes(calculatedTimes.startTime);
-      const newEndMinutes = timeToMinutes(calculatedTimes.endTime);
-      const hasOverlap = (siblingEntries ?? []).some((entry) => {
-        if (isAbsenceType(entry.taetigkeit)) return false;
-        // Regie entries can overlap with other Regie entries
-        if (isEditingRegie && entry.location_type === "regie") return false;
-        const existingStartMinutes = timeToMinutes(entry.start_time);
-        const existingEndMinutes = timeToMinutes(entry.end_time);
-        return newStartMinutes < existingEndMinutes && newEndMinutes > existingStartMinutes;
-      });
-
-      if (hasOverlap) {
-        toast({
-          title: "Zeitüberschneidung",
-          description: "Die neue Zeit überschneidet sich mit einem anderen Eintrag dieses Tages.",
-          variant: "destructive",
-        });
-        setIsSavingEdit(false);
-        return;
-      }
-    }
-
-    const pauseMinutes = editingEntry.has_lunch_break ? LUNCH_BREAK_MINUTES : calculatedTimes.pauseMinutes;
-    const pauseStart = editingEntry.has_lunch_break ? LUNCH_BREAK_START : (calculatedTimes.pauseStart || null);
-    const pauseEnd = editingEntry.has_lunch_break ? LUNCH_BREAK_END : (calculatedTimes.pauseEnd || null);
+    // Pausenzeiten aus den editierbaren Feldern
+    const pauseMinutes = editingEntry.has_lunch_break
+      ? Math.round(Math.max(0, timeToMinutes(editingEntry.lunch_end) - timeToMinutes(editingEntry.lunch_start)))
+      : 0;
+    const pauseStart = editingEntry.has_lunch_break ? editingEntry.lunch_start : null;
+    const pauseEnd = editingEntry.has_lunch_break ? editingEntry.lunch_end : null;
 
     const { error: updateError } = await supabase
       .from("time_entries")
       .update({
-        stunden: hours,
+        stunden: Math.round(hours * 1000) / 1000,
         taetigkeit: editingEntry.taetigkeit,
         location_type: nextLocationType,
         project_id: nextProjectId,
         disturbance_id: nextLocationType === "regie" ? (nextDisturbanceIds[0] ?? null) : null,
-        start_time: calculatedTimes.startTime,
-        end_time: calculatedTimes.endTime,
+        start_time: editingEntry.start_time,
+        end_time: editingEntry.end_time,
         pause_minutes: pauseMinutes,
         pause_start: pauseStart,
         pause_end: pauseEnd,
@@ -773,15 +743,6 @@ export default function HoursReport() {
       }, 0),
     };
   }, [timeEntries]);
-
-  const editPreview = useMemo(() => {
-    if (!editingEntry) return null;
-
-    const hours = parseHoursInput(editingEntry.stunden);
-    if (!Number.isFinite(hours) || hours <= 0) return null;
-
-    return calculateWorkTimeRange(parseISO(editingEntry.datum), hours, editingEntry.start_time || "07:00");
-  }, [editingEntry]);
 
   const addBordersToCell = (cell: XLSX.CellObject, thick = false, centered = false) => {
     const borderStyle = thick ? "medium" : "thin";
@@ -1492,18 +1453,7 @@ export default function HoursReport() {
 
           {editingEntry && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-hours">Stunden</Label>
-                <Input
-                  id="edit-hours"
-                  type="number"
-                  min="0.25"
-                  step="0.25"
-                  value={editingEntry.stunden}
-                  onChange={(event) => setEditingEntry((current) => current ? { ...current, stunden: event.target.value } : current)}
-                />
-              </div>
-
+              {/* Tätigkeit */}
               <div className="space-y-2">
                 <Label htmlFor="edit-activity">Tätigkeit</Label>
                 <Input
@@ -1513,8 +1463,100 @@ export default function HoursReport() {
                 />
               </div>
 
-              {!isAbsenceType(editingEntry.taetigkeit) && (
-                <div className="space-y-4">
+              {/* Abwesenheit: nur Stunden */}
+              {isAbsenceType(editingEntry.taetigkeit) ? (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-hours">Stunden</Label>
+                  <Input
+                    id="edit-hours"
+                    type="number"
+                    min="0.25"
+                    step="0.125"
+                    value={editingEntry.stunden}
+                    onChange={(event) => setEditingEntry((current) => current ? { ...current, stunden: event.target.value } : current)}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Von - Bis */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Von</Label>
+                      <Input
+                        type="time"
+                        value={editingEntry.start_time}
+                        onChange={(e) => setEditingEntry((c) => c ? { ...c, start_time: e.target.value } : c)}
+                        className="font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bis</Label>
+                      <Input
+                        type="time"
+                        step="1"
+                        value={editingEntry.end_time}
+                        onChange={(e) => setEditingEntry((c) => c ? { ...c, end_time: e.target.value } : c)}
+                        className="font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pausen */}
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                    <p className="text-sm font-medium text-muted-foreground">Pausen</p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="edit-breakfast"
+                          checked={editingEntry.has_breakfast_break}
+                          onCheckedChange={(checked) => setEditingEntry((c) => c ? { ...c, has_breakfast_break: !!checked } : c)}
+                        />
+                        <Label htmlFor="edit-breakfast" className="flex-1 text-sm cursor-pointer">
+                          Vormittagspause <span className="text-xs text-muted-foreground">(zählt als Arbeitszeit)</span>
+                        </Label>
+                      </div>
+                      {editingEntry.has_breakfast_break && (
+                        <div className="grid grid-cols-2 gap-2 pl-8">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Von</label>
+                            <Input type="time" value={editingEntry.breakfast_start} onChange={(e) => setEditingEntry((c) => c ? { ...c, breakfast_start: e.target.value } : c)} className="h-9 text-sm font-mono" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Bis</label>
+                            <Input type="time" value={editingEntry.breakfast_end} onChange={(e) => setEditingEntry((c) => c ? { ...c, breakfast_end: e.target.value } : c)} className="h-9 text-sm font-mono" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="edit-lunch"
+                          checked={editingEntry.has_lunch_break}
+                          onCheckedChange={(checked) => setEditingEntry((c) => c ? { ...c, has_lunch_break: !!checked } : c)}
+                        />
+                        <Label htmlFor="edit-lunch" className="flex-1 text-sm cursor-pointer">
+                          Mittagspause <span className="text-xs text-destructive">(wird abgezogen)</span>
+                        </Label>
+                      </div>
+                      {editingEntry.has_lunch_break && (
+                        <div className="grid grid-cols-2 gap-2 pl-8">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Von</label>
+                            <Input type="time" value={editingEntry.lunch_start} onChange={(e) => setEditingEntry((c) => c ? { ...c, lunch_start: e.target.value } : c)} className="h-9 text-sm font-mono" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Bis</label>
+                            <Input type="time" value={editingEntry.lunch_end} onChange={(e) => setEditingEntry((c) => c ? { ...c, lunch_end: e.target.value } : c)} className="h-9 text-sm font-mono" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ort + Projekt */}
                   <div className="space-y-2">
                     <Label>Ort</Label>
                     <Select
@@ -1526,9 +1568,7 @@ export default function HoursReport() {
                         disturbanceIds: value === "regie" ? current.disturbanceIds : [],
                       } : current)}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="baustelle">Baustelle</SelectItem>
                         <SelectItem value="werkstatt">Werkstatt</SelectItem>
@@ -1544,41 +1584,32 @@ export default function HoursReport() {
                         value={editingEntry.project_id ?? "__none__"}
                         onValueChange={(value) => setEditingEntry((current) => current ? { ...current, project_id: value === "__none__" ? null : value } : current)}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Projekt auswählen" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Projekt auswählen" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Kein Projekt</SelectItem>
                           {Object.values(projects).map((project) => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name}
-                            </SelectItem>
+                            <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
 
-                </div>
+                  {/* Berechnete Stunden */}
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 flex items-center justify-between">
+                    <span className="text-sm font-medium">Berechnete Arbeitszeit</span>
+                    <span className="text-lg font-bold">
+                      {(() => {
+                        const s = timeToMinutes(editingEntry.start_time);
+                        const e = timeToMinutes(editingEntry.end_time);
+                        let m = e - s;
+                        if (editingEntry.has_lunch_break) m -= Math.max(0, timeToMinutes(editingEntry.lunch_end) - timeToMinutes(editingEntry.lunch_start));
+                        return Math.max(0, m / 60).toFixed(3);
+                      })()} h
+                    </span>
+                  </div>
+                </>
               )}
-
-              <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-                <p className="font-medium">Berechnete Zeiten</p>
-                <p className="mt-1 text-muted-foreground">
-                  Startzeiten zwischen 12:00 und 12:30 werden automatisch auf 12:30 verschoben.
-                </p>
-                {editPreview ? (
-                  <>
-                    <p className="mt-2 text-muted-foreground">
-                      Berechnet: {editPreview.startTime} – {editPreview.endTime}
-                      {editPreview.pauseStart && editPreview.pauseEnd ? ` (Pause ${editPreview.pauseStart}–${editPreview.pauseEnd})` : ""}
-                    </p>
-                    <p className="text-muted-foreground">Nettoarbeitszeit: {parseHoursInput(editingEntry.stunden).toFixed(2)} h</p>
-                  </>
-                ) : (
-                  <p className="mt-2 text-muted-foreground">Bitte gültige Stunden eingeben.</p>
-                )}
-              </div>
             </div>
           )}
 
