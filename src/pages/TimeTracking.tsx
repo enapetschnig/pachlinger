@@ -279,13 +279,12 @@ const TimeTracking = () => {
       return;
     }
 
-    // Lücken als Zeitblöcke erstellen (mins = Minuten seit Mitternacht, z.B. 420 = 07:00)
+    // Minuten seit Mitternacht → HH:MM String (kein Sekunden, damit time-input es akzeptiert)
     const minsToStr = (totalMins: number): string => {
-      const h = Math.floor(totalMins / 60);
-      const m = Math.floor(totalMins % 60);
-      const secFrac = totalMins - Math.floor(totalMins);
-      const sec = secFrac > 0.4 ? ":30" : ""; // 0.5 min = 30 sec
-      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}${sec}`;
+      const rounded = Math.round(totalMins);
+      const h = Math.floor(rounded / 60);
+      const m = rounded % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     };
 
     const newBlocks: TimeBlock[] = gaps.map((gap) => {
