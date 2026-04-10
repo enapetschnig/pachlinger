@@ -279,17 +279,18 @@ const TimeTracking = () => {
       return;
     }
 
-    // Lücken als Zeitblöcke erstellen
-    const minutesToTimeStr = (mins: number): string => {
-      const h = Math.floor(mins);
-      const m = Math.round((mins - h) * 60);
-      const sec = mins === timeToMinutes(DEFAULT_END_TIME) ? ":30" : "";
+    // Lücken als Zeitblöcke erstellen (mins = Minuten seit Mitternacht, z.B. 420 = 07:00)
+    const minsToStr = (totalMins: number): string => {
+      const h = Math.floor(totalMins / 60);
+      const m = Math.floor(totalMins % 60);
+      const secFrac = totalMins - Math.floor(totalMins);
+      const sec = secFrac > 0.4 ? ":30" : ""; // 0.5 min = 30 sec
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}${sec}`;
     };
 
     const newBlocks: TimeBlock[] = gaps.map((gap) => {
-      const startStr = minutesToTimeStr(gap.start);
-      const endStr = minutesToTimeStr(gap.end);
+      const startStr = minsToStr(gap.start);
+      const endStr = minsToStr(gap.end);
       const spansBreakfast = gap.start <= timeToMinutes(BREAKFAST_BREAK_START) && gap.end >= timeToMinutes(BREAKFAST_BREAK_END);
       const spansLunch = gap.start <= timeToMinutes(LUNCH_BREAK_START) && gap.end >= timeToMinutes(LUNCH_BREAK_END);
 
