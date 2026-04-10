@@ -406,6 +406,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully:", emailResponse);
 
+    // PDF in Projekt-Storage hochladen wenn Projekt zugeordnet
+    if (disturbance.project_id) {
+      try {
+        const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
+        const storagePath = `${disturbance.project_id}/${pdfFilename}`;
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from("project-reports")
+          .upload(storagePath, pdfBytes, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
+        if (uploadError) {
+          console.error("PDF upload to project storage failed:", uploadError);
+        } else {
+          console.log("PDF uploaded to project-reports:", storagePath);
+        }
+      } catch (uploadErr) {
+        console.error("PDF upload error:", uploadErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, emailResponse }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }

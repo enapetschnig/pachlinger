@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FileText, FileCheck, Package, Camera, ImagePlus, Lock, Clock3, Zap } from "lucide-react";
+import { FileText, FileCheck, Camera, ImagePlus, Lock, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,8 +20,6 @@ const ProjectOverview = () => {
   const navigate = useNavigate();
   const [projectName, setProjectName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [materialCount, setMaterialCount] = useState(0);
-  const [disturbanceCount, setDisturbanceCount] = useState(0);
   const [projectHoursTotal, setProjectHoursTotal] = useState(0);
   const [categories, setCategories] = useState<DocumentCategory[]>([
     {
@@ -40,8 +38,8 @@ const ProjectOverview = () => {
     },
     {
       type: "reports",
-      title: "Arbeitsberichte",
-      description: "Bautagebücher und Stundenberichte",
+      title: "Berichte & PDFs",
+      description: "Arbeitsberichte, Stundenberichte, Dokumente",
       icon: <FileCheck className="h-8 w-8" />,
       count: 0,
     },
@@ -65,9 +63,7 @@ const ProjectOverview = () => {
   useEffect(() => {
     if (projectId) {
       fetchFileCounts();
-      fetchMaterialCount();
       fetchProjectHoursTotal();
-      fetchDisturbanceCount();
     }
   }, [projectId, isAdmin]);
 
@@ -97,17 +93,6 @@ const ProjectOverview = () => {
     }
   };
 
-  const fetchMaterialCount = async () => {
-    if (!projectId) return;
-
-    const { count } = await supabase
-      .from("material_entries")
-      .select("*", { count: "exact", head: true })
-      .eq("project_id", projectId);
-
-    setMaterialCount(count || 0);
-  };
-
   const fetchProjectHoursTotal = async () => {
     if (!projectId) return;
 
@@ -121,15 +106,6 @@ const ProjectOverview = () => {
       const total = (data || []).reduce((sum, entry) => sum + Number(entry.stunden || 0), 0);
       setProjectHoursTotal(total);
     }
-  };
-
-  const fetchDisturbanceCount = async () => {
-    if (!projectId) return;
-    const { count } = await supabase
-      .from("disturbances")
-      .select("*", { count: "exact", head: true })
-      .eq("project_id", projectId);
-    setDisturbanceCount(count || 0);
   };
 
   const fetchFileCounts = async () => {
@@ -203,50 +179,6 @@ const ProjectOverview = () => {
               </CardContent>
             </Card>
           ))}
-
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate(`/projects/${projectId}/materials`)}
-          >
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="text-primary">
-                  <Package className="h-8 w-8" />
-                </div>
-                <div className="text-2xl font-bold">{materialCount}</div>
-              </div>
-              <CardTitle className="text-xl">Materialliste</CardTitle>
-              <CardDescription>Verwendete Materialien dokumentieren</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Öffnen
-              </Button>
-            </CardContent>
-          </Card>
-
-          {disturbanceCount > 0 && (
-            <Card
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => navigate(`/disturbances`)}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="text-primary">
-                    <Zap className="h-8 w-8" />
-                  </div>
-                  <div className="text-2xl font-bold">{disturbanceCount}</div>
-                </div>
-                <CardTitle className="text-xl">Arbeitsberichte</CardTitle>
-                <CardDescription>Zugeordnete Arbeitsberichte für dieses Projekt</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full">
-                  Anzeigen
-                </Button>
-              </CardContent>
-            </Card>
-          )}
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOpenProjectHours}>
             <CardHeader>

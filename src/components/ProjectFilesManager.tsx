@@ -8,7 +8,7 @@ import { Upload, Download, Trash2, Camera, FileText, Package, Lock, ClipboardLis
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 
-type DocumentType = 'photos' | 'plans' | 'reports' | 'materials' | 'chef' | 'notizen';
+type DocumentType = 'photos' | 'plans' | 'reports' | 'chef' | 'notizen';
 
 interface Document {
   id: string;
@@ -28,7 +28,6 @@ const bucketMap: Record<DocumentType, string> = {
   photos: 'project-photos',
   plans: 'project-plans',
   reports: 'project-reports',
-  materials: 'project-materials',
   chef: 'project-chef',
   notizen: 'project-notizen',
 };
@@ -36,8 +35,7 @@ const bucketMap: Record<DocumentType, string> = {
 const titleMap: Record<DocumentType, string> = {
   photos: '📷 Fotos',
   plans: '📋 Pläne',
-  reports: '📄 Berichte',
-  materials: '📦 Material',
+  reports: '📄 Berichte & PDFs',
   chef: '🔒 Chefordner',
   notizen: '📝 Notizen',
 };
@@ -333,10 +331,6 @@ export function ProjectFilesManager({ projectId, defaultTab = 'photos' }: Projec
         <TabsTrigger value="reports" className="gap-1">
           {iconMap.reports}
           <span className="hidden sm:inline">Berichte</span>
-        </TabsTrigger>
-        <TabsTrigger value="materials" className="gap-1">
-          {iconMap.materials}
-          <span className="hidden sm:inline">Material</span>
         </TabsTrigger>
         {isAdmin && (
           <TabsTrigger value="chef" className="gap-1">
