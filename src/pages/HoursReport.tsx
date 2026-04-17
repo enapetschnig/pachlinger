@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { calculateSuggestedStartTime, calculateWorkTimeRange, getNormalWorkingHours, timeToMinutes, isWorkingDay, DAILY_WORK_HOURS, calculateHoursFromTimes, LUNCH_BREAK_START, LUNCH_BREAK_END, LUNCH_BREAK_MINUTES, BREAKFAST_BREAK_START, BREAKFAST_BREAK_END } from "@/lib/workingHours";
+import { calculateZaBalance, computeMonthlyZa, generateZaHistory, type ZaHistoryEntry } from "@/lib/zaCalculation";
 
 interface TimeEntry {
   id: string;
@@ -249,105 +250,50 @@ export default function HoursReport() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
   const [employeeBalances, setEmployeeBalances] = useState<EmployeeBalances | null>(null);
+  const [zaHistory, setZaHistory] = useState<ZaHistoryEntry[]>([]);
+  const [showZaHistory, setShowZaHistory] = useState(false);
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
   const fetchEmployeeBalances = async (userId: string) => {
     try {
-      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-      const endDate = `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`;
-
-      // Monats-Einträge UND alle Einträge (für Gesamt-ZA-Saldo)
-      const [{ data: monthEntries }, { data: allEntries }, { data: zaAdj }, { data: vacAdj }] = await Promise.all([
-        supabase.from("time_entries").select("datum, stunden, taetigkeit").eq("user_id", userId).gte("datum", startDate).lte("datum", endDate),
+      const [{ data: allEntries }, { data: zaAdj }, { data: vacAdj }] = await Promise.all([
         supabase.from("time_entries").select("datum, stunden, taetigkeit").eq("user_id", userId),
-        supabase.from("za_adjustments").select("hours").eq("user_id", userId),
+        supabase.from("za_adjustments").select("hours, reason, created_at, adjusted_by").eq("user_id", userId).order("created_at", { ascending: false }),
         supabase.from("vacation_adjustments").select("days").eq("user_id", userId),
       ]);
 
-      // MONAT: Über-/Minus nur wenn alle erwarteten MO-DO-Tage eingetragen sind
-      let zaUsedMonth = 0;
+      const entries = (allEntries || []).map((e) => ({ datum: e.datum, stunden: e.stunden, taetigkeit: e.taetigkeit }));
+      const adjustments = (zaAdj || []).map((a) => ({
+        hours: a.hours,
+        reason: a.reason,
+        created_at: a.created_at,
+        adjusted_by: a.adjusted_by,
+      }));
 
-      const byDayMonth: Record<string, { total: number; hasAbsence: boolean }> = {};
-      (monthEntries || []).forEach((e) => {
-        if (e.taetigkeit === "Zeitausgleich") {
-          zaUsedMonth += Number(e.stunden);
-          return;
-        }
-        if (!byDayMonth[e.datum]) byDayMonth[e.datum] = { total: 0, hasAbsence: false };
-        byDayMonth[e.datum].total += Number(e.stunden);
-        if (["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch"].includes(e.taetigkeit || "")) {
-          byDayMonth[e.datum].hasAbsence = true;
-        }
-      });
-
-      // Erwartete MO-DO-Tage bis heute (laufender Monat) oder Monatsende (vergangener Monat)
       const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      const lastDayOfMonth = new Date(year, month, 0);
-      const endCheck = lastDayOfMonth < today ? lastDayOfMonth : today;
-      const expectedWorkdays: string[] = [];
-      for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
-        const dateObj = new Date(year, month - 1, d);
-        if (dateObj > endCheck) break;
-        if (isWorkingDay(dateObj)) {
-          expectedWorkdays.push(dateObj.toISOString().split("T")[0]);
-        }
-      }
-      const missingDays = expectedWorkdays.filter((d) => !byDayMonth[d]).length;
-      const monthComplete = missingDays === 0;
+      const balance = calculateZaBalance(entries, adjustments, today);
+      const monthly = computeMonthlyZa(entries, year, month, today);
+      const history = generateZaHistory(entries, adjustments, today);
 
-      // Über-/Minus nur berechnen wenn Monat vollständig
-      let zaEarnedMonth = 0;
-      if (monthComplete) {
-        Object.entries(byDayMonth).forEach(([datum, { total, hasAbsence }]) => {
-          const date = new Date(datum + "T00:00:00");
-          const target = getNormalWorkingHours(date);
-          if (hasAbsence && total <= target + 0.01) return;
-          if (target === 0 && total > 0) zaEarnedMonth += total;
-          else if (target > 0) zaEarnedMonth += total - target;
-        });
-      }
-
-      // GESAMT: ZA-Saldo (all-time, konsistent mit MyHours/Admin)
-      let zaEarnedTotal = 0;
-      let zaUsedTotal = 0;
       const vacationDatesTotal = new Set<string>();
-      const byDayTotal: Record<string, { total: number; hasAbsence: boolean }> = {};
-      (allEntries || []).forEach((e) => {
-        if (e.taetigkeit === "Zeitausgleich") {
-          zaUsedTotal += Number(e.stunden);
-          return;
-        }
-        if (!byDayTotal[e.datum]) byDayTotal[e.datum] = { total: 0, hasAbsence: false };
-        byDayTotal[e.datum].total += Number(e.stunden);
-        if (["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch"].includes(e.taetigkeit || "")) {
-          byDayTotal[e.datum].hasAbsence = true;
-          if (e.taetigkeit === "Urlaub") vacationDatesTotal.add(e.datum);
-        }
+      entries.forEach((e) => {
+        if (e.taetigkeit === "Urlaub") vacationDatesTotal.add(e.datum);
       });
-      Object.entries(byDayTotal).forEach(([datum, { total, hasAbsence }]) => {
-        const date = new Date(datum + "T00:00:00");
-        const target = getNormalWorkingHours(date);
-        if (hasAbsence && total <= target + 0.01) return;
-        if (target === 0 && total > 0) zaEarnedTotal += total;
-        else if (target > 0) zaEarnedTotal += total - target;
-      });
-
-      const zaAdjustments = (zaAdj || []).reduce((sum, a) => sum + Number(a.hours), 0);
       const vacationGranted = (vacAdj || []).reduce((sum, a) => sum + Number(a.days), 0);
 
       setEmployeeBalances({
-        zaEarned: Math.round(zaEarnedMonth * 1000) / 1000, // Monat (nur wenn komplett)
-        zaAdjustments,
-        zaUsed: zaUsedMonth, // Monat
-        zaBalance: Math.round((zaEarnedTotal + zaAdjustments - zaUsedTotal) * 1000) / 1000, // GESAMT all-time
+        zaEarned: monthly.earned,
+        zaAdjustments: balance.adjustments,
+        zaUsed: monthly.used,
+        zaBalance: balance.balance,
         vacationGranted,
         vacationUsed: vacationDatesTotal.size,
         vacationBalance: vacationGranted - vacationDatesTotal.size,
-        monthComplete,
-        missingDays,
+        monthComplete: monthly.complete,
+        missingDays: monthly.missingDays.length,
       });
+      setZaHistory(history);
     } catch (err) {
       console.error("Error fetching employee balances:", err);
     }
@@ -787,42 +733,13 @@ export default function HoursReport() {
       noOvertime: finalizeBreakdown(noOvertimeBreakdown),
       totalHours: timeEntries.reduce((sum, entry) => sum + Number(entry.stunden || 0), 0),
       totalOvertime: (() => {
-        // Nur wenn Monat vollständig: alle MO-DO-Tage bis heute/Monatsende
-        // müssen Einträge haben. Sonst 0 (wird auch UI-seitig ausgeblendet).
-        const byDay: Record<string, { total: number; hasAbsence: boolean }> = {};
-        timeEntries.forEach((e) => {
-          if (e.taetigkeit === "Zeitausgleich") return;
-          if (!byDay[e.datum]) byDay[e.datum] = { total: 0, hasAbsence: false };
-          byDay[e.datum].total += Number(e.stunden || 0);
-          if (["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch"].includes(e.taetigkeit || "")) {
-            byDay[e.datum].hasAbsence = true;
-          }
-        });
-
-        // Erwartete MO-DO Tage im Monat bis heute oder Monatsende
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        const lastDayOfMonth = new Date(year, month, 0);
-        const endCheck = lastDayOfMonth < today ? lastDayOfMonth : today;
-        const expectedDays: string[] = [];
-        for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
-          const dateObj = new Date(year, month - 1, d);
-          if (dateObj > endCheck) break;
-          if (isWorkingDay(dateObj)) {
-            expectedDays.push(dateObj.toISOString().split("T")[0]);
-          }
-        }
-        const missing = expectedDays.filter((d) => !byDay[d]).length;
-        if (missing > 0) return 0; // Monat unvollständig → keine Überstunden
-
-        return Object.entries(byDay).reduce((sum, [datum, { total, hasAbsence }]) => {
-          const date = new Date(datum + "T00:00:00");
-          const target = getNormalWorkingHours(date);
-          if (hasAbsence && total <= target + 0.01) return sum;
-          if (target === 0 && total > 0) return sum + total;
-          if (target > 0) return sum + (total - target);
-          return sum;
-        }, 0);
+        const monthly = computeMonthlyZa(
+          timeEntries.map((e) => ({ datum: e.datum, stunden: e.stunden, taetigkeit: e.taetigkeit })),
+          year,
+          month,
+          new Date()
+        );
+        return monthly.complete ? monthly.net : 0;
       })(),
     };
   }, [timeEntries]);
@@ -1291,13 +1208,17 @@ export default function HoursReport() {
 
                 {selectedUserId && employeeBalances && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowZaHistory(true)}
+                      className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-left hover:border-blue-400 transition-colors"
+                    >
                       <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">ZA-Saldo gesamt</p>
                       <p className={`text-xl font-bold ${employeeBalances.zaBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {employeeBalances.zaBalance >= 0 ? "+" : ""}{employeeBalances.zaBalance.toFixed(1)}h
                       </p>
-                      <p className="text-xs text-muted-foreground">aktueller Kontostand</p>
-                    </div>
+                      <p className="text-xs text-muted-foreground">nur abgeschl. Monate · Verlauf anzeigen</p>
+                    </button>
                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                       <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Urlaub übrig</p>
                       <p className={`text-xl font-bold ${employeeBalances.vacationBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -1798,6 +1719,60 @@ export default function HoursReport() {
             <Button onClick={handleDeleteEntry} disabled={!entryToDelete || isDeletingEntry}>
               {isDeletingEntry ? "Löscht..." : "Eintrag löschen"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showZaHistory} onOpenChange={setShowZaHistory}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>ZA-Verlauf</DialogTitle>
+            <DialogDescription>
+              Alle Buchungen auf dem Zeitausgleichs-Konto. Nur abgeschlossene Monate werden gebucht.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-1 pr-4">
+            {zaHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Noch keine Buchungen.</p>
+            ) : (
+              <div className="space-y-2">
+                {zaHistory.map((ev, idx) => {
+                  if (ev.kind === "month_close") {
+                    const monthName = monthNames[ev.month - 1];
+                    return (
+                      <div key={`mc-${idx}`} className="rounded-md border bg-card p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-sm">{monthName} {ev.year}</p>
+                          <p className={`font-bold text-sm ${ev.net >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {ev.net >= 0 ? "+" : ""}{ev.net.toFixed(2)}h
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Monatsabschluss: +{ev.earned.toFixed(2)}h erarbeitet, -{ev.used.toFixed(2)}h ZA genommen
+                        </p>
+                      </div>
+                    );
+                  }
+                  if (ev.kind === "adjustment") {
+                    return (
+                      <div key={`adj-${idx}`} className="rounded-md border border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-sm">Manuelle Korrektur</p>
+                          <p className={`font-bold text-sm ${ev.hours >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {ev.hours >= 0 ? "+" : ""}{ev.hours.toFixed(2)}h
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{ev.date} · {ev.reason || "(kein Grund)"}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowZaHistory(false)}>Schließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

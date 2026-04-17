@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Shield, User as UserIcon, Send, Mail, Phone, MapPin, Shirt, FileText, Clock, Trash2, Settings, Save, Pencil, Calendar, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getNormalWorkingHours, isWorkingDay, DAILY_WORK_HOURS } from "@/lib/workingHours";
+import { calculateZaBalance } from "@/lib/zaCalculation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -1657,7 +1658,8 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
     if (filterMonth) {
       const [year, month] = filterMonth.split("-");
       const startDate = `${year}-${month}-01`;
-      const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split("T")[0];
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
       entriesQuery = entriesQuery.gte("datum", startDate).lte("datum", endDate);
       adjQuery = adjQuery.gte("created_at", `${startDate}T00:00:00`).lte("created_at", `${endDate}T23:59:59`);
     }
@@ -1678,42 +1680,20 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
       adjMap[a.user_id] = (adjMap[a.user_id] || 0) + Number(a.hours);
     });
 
+    const today = new Date();
     const result = activeProfiles.map(profile => {
       const userEntries = allEntries.filter(e => e.user_id === profile.id);
-
-      // Gleiche Logik wie HoursReport und MyHours (Konsistenz)
-      const byDay: Record<string, { total: number; hasAbsence: boolean }> = {};
-      const absenceTypes = ["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch"];
-      userEntries.forEach(e => {
-        if (e.taetigkeit === "Zeitausgleich") return; // ZA separat
-        if (!byDay[e.datum]) byDay[e.datum] = { total: 0, hasAbsence: false };
-        byDay[e.datum].total += Number(e.stunden);
-        if (absenceTypes.includes(e.taetigkeit || "")) {
-          byDay[e.datum].hasAbsence = true;
-        }
-      });
-
-      let accrued = 0;
-      Object.entries(byDay).forEach(([datum, { total, hasAbsence }]) => {
-        const dateObj = new Date(datum + "T00:00:00");
-        const target = getNormalWorkingHours(dateObj);
-        if (hasAbsence && total <= target + 0.01) return;
-        if (target === 0 && total > 0) {
-          accrued += total;
-        } else if (target > 0) {
-          accrued += total - target;
-        }
-      });
-
-      const taken = userEntries
-        .filter(e => e.taetigkeit === "Zeitausgleich")
-        .reduce((sum, e) => sum + Number(e.stunden), 0);
+      const balance = calculateZaBalance(
+        userEntries.map(e => ({ datum: e.datum, stunden: e.stunden, taetigkeit: e.taetigkeit })),
+        [],
+        today
+      );
 
       return {
         userId: profile.id,
         name: `${profile.vorname} ${profile.nachname}`,
-        accrued: Math.round(accrued * 100) / 100,
-        taken,
+        accrued: balance.bookedEarned,
+        taken: balance.bookedUsed,
         adjustments: adjMap[profile.id] || 0,
       };
     });
@@ -2100,7 +2080,8 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
     if (filterMonth) {
       const [year, month] = filterMonth.split("-");
       const startDate = `${year}-${month}-01`;
-      const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split("T")[0];
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
       entriesQuery = entriesQuery.gte("datum", startDate).lte("datum", endDate);
       adjQuery = adjQuery.gte("created_at", `${startDate}T00:00:00`).lte("created_at", `${endDate}T23:59:59`);
     }

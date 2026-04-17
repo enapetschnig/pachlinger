@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getTotalWorkingHours, calculateDailyOvertime, DAILY_WORK_HOURS, calculateHoursFromTimes, LUNCH_BREAK_MINUTES, LUNCH_BREAK_START, LUNCH_BREAK_END } from "@/lib/workingHours";
+import { calculateZaBalance } from "@/lib/zaCalculation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -83,46 +84,28 @@ const MyHours = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Konsistent mit HoursReport: Alle Einträge laden und gleiche Logik nutzen
     const [zaAdj, vacAdj, allEntries] = await Promise.all([
       supabase.from("za_adjustments").select("hours").eq("user_id", user.id),
       supabase.from("vacation_adjustments").select("days").eq("user_id", user.id),
       supabase.from("time_entries").select("datum, stunden, taetigkeit").eq("user_id", user.id),
     ]);
 
-    let earned = 0;
-    let zaUsedHours = 0;
     const vacDates = new Set<string>();
-
-    // Gruppiere nach Tag (gleiche Logik wie HoursReport)
-    const byDay: Record<string, { total: number; hasAbsence: boolean }> = {};
     (allEntries.data || []).forEach((e) => {
-      if (e.taetigkeit === "Zeitausgleich") {
-        zaUsedHours += Number(e.stunden);
-        return;
-      }
-      if (!byDay[e.datum]) byDay[e.datum] = { total: 0, hasAbsence: false };
-      byDay[e.datum].total += Number(e.stunden);
-      if (["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch"].includes(e.taetigkeit || "")) {
-        byDay[e.datum].hasAbsence = true;
-        if (e.taetigkeit === "Urlaub") vacDates.add(e.datum);
-      }
+      if (e.taetigkeit === "Urlaub") vacDates.add(e.datum);
     });
 
-    // Über-/Minusstunden (Zeitzone-sicher)
-    Object.entries(byDay).forEach(([datum, { total, hasAbsence }]) => {
-      const date = new Date(datum + 'T00:00:00');
-      const target = getNormalWorkingHours(date);
-      if (hasAbsence && total <= target + 0.01) return; // Abwesenheit erfüllt Soll
-      if (target === 0 && total > 0) {
-        earned += total;
-      } else if (target > 0) {
-        earned += total - target;
-      }
+    const balance = calculateZaBalance(
+      (allEntries.data || []).map((e) => ({ datum: e.datum, stunden: e.stunden, taetigkeit: e.taetigkeit })),
+      (zaAdj.data || []).map((a) => ({ hours: a.hours })),
+      new Date()
+    );
+    setZaSaldo({
+      earned: balance.bookedEarned,
+      adjustments: balance.adjustments,
+      used: balance.bookedUsed,
+      balance: balance.balance,
     });
-
-    const adjustments = (zaAdj.data || []).reduce((s, r) => s + Number(r.hours), 0);
-    setZaSaldo({ earned, adjustments, used: zaUsedHours, balance: earned + adjustments - zaUsedHours });
 
     // Urlaub
     const granted = (vacAdj.data || []).reduce((s, r) => s + Number(r.days), 0);
