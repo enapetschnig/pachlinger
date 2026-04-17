@@ -52,7 +52,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [isActivated, setIsActivated] = useState<boolean | null>(null);
   const { handleRestartInstallGuide } = useOnboarding();
-  const { isOnline } = useNetworkStatus();
+  const isOnline = useNetworkStatus();
 
   const fetchProjects = async () => {
     const { data } = await supabase

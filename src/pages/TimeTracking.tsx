@@ -97,7 +97,7 @@ const ABSENCE_TYPES = ["Urlaub", "Krankenstand", "Weiterbildung", "Arztbesuch", 
 
 const TimeTracking = () => {
   const { toast } = useToast();
-  const { isOnline } = useNetworkStatus();
+  const isOnline = useNetworkStatus();
   const submitLock = useRef(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
