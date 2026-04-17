@@ -118,6 +118,7 @@ const TimeTracking = () => {
     rangeMode: false,
     dateFrom: new Date().toISOString().split("T")[0],
     dateTo: new Date().toISOString().split("T")[0],
+    zaHours: "4", // Nur für Zeitausgleich - variable Stunden
   });
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([createDefaultBlock()]);
@@ -555,6 +556,13 @@ const TimeTracking = () => {
       return;
     }
 
+    // Zeitausgleich immer nur Einzeltag (variable Stunden)
+    if (absenceData.type === "zeitausgleich" && absenceData.rangeMode) {
+      toast({ variant: "destructive", title: "Nicht möglich", description: "Zeitausgleich bitte pro Tag einzeln erfassen." });
+      setSubmittingAbsence(false);
+      return;
+    }
+
     if (absenceData.rangeMode) {
       const workdays = getWorkdaysInRange(absenceData.dateFrom, absenceData.dateTo);
       if (workdays.length === 0) {
@@ -629,21 +637,97 @@ const TimeTracking = () => {
       return;
     }
 
-    // Single day absence: Regelarbeitszeit automatisch buchen
+    // Single day absence
     const selectedDateObj = new Date(absenceData.date + "T00:00:00");
-    const workingHours = getNormalWorkingHours(selectedDateObj);
-    if (workingHours <= 0) {
+    const dailyTarget = getNormalWorkingHours(selectedDateObj);
+    const isZA = absenceData.type === "zeitausgleich";
+
+    if (!isZA && dailyTarget <= 0) {
       toast({ variant: "destructive", title: "Kein Arbeitstag", description: "An diesem Tag (FR/SA/SO) wird nicht gearbeitet." });
       setSubmittingAbsence(false);
       return;
     }
+
+    // ZA-Stunden validieren
+    let zaHours = 0;
+    if (isZA) {
+      zaHours = parseFloat(absenceData.zaHours.replace(",", "."));
+      if (!Number.isFinite(zaHours) || zaHours <= 0 || zaHours > 12) {
+        toast({ variant: "destructive", title: "Ungültige Stunden", description: "Bitte 0.25 bis 12 Stunden eingeben." });
+        setSubmittingAbsence(false);
+        return;
+      }
+    }
+
     const { data: existingEntries } = await supabase
       .from("time_entries")
-      .select("id, stunden, taetigkeit")
+      .select("id, stunden, start_time, end_time, taetigkeit")
       .eq("user_id", user.id)
       .eq("datum", absenceData.date);
 
-    if ((existingEntries || []).length > 0) {
+    const existing = existingEntries || [];
+
+    if (isZA) {
+      // ZA: Prüfe ob schon ZA für diesen Tag existiert
+      if (existing.some((e) => e.taetigkeit === "Zeitausgleich")) {
+        toast({ variant: "destructive", title: "ZA bereits eingetragen", description: "Für diesen Tag ist schon Zeitausgleich gebucht." });
+        setSubmittingAbsence(false);
+        return;
+      }
+      // Prüfe Gesamtstunden-Obergrenze
+      const existingTotal = existing.reduce((s, e) => s + Number(e.stunden), 0);
+      if (existingTotal + zaHours > 12) {
+        toast({ variant: "destructive", title: "Zu viele Stunden", description: `Mit ${zaHours}h ZA würden es über 12h.` });
+        setSubmittingAbsence(false);
+        return;
+      }
+
+      // ZA-Block am Ende des Tages platzieren (oder 07:00 wenn leer)
+      // Finde freie Zeit: nach letztem Eintrag oder 07:00
+      let startMinutes = timeToMinutes(DEFAULT_START_TIME);
+      if (existing.length > 0) {
+        const latestEnd = existing.reduce((max, e) => {
+          const end = timeToMinutes(e.end_time || "00:00");
+          return end > max ? end : max;
+        }, 0);
+        startMinutes = Math.max(startMinutes, latestEnd);
+      }
+      const endMinutes = startMinutes + zaHours * 60;
+      const pad = (n: number) => String(Math.floor(n)).padStart(2, "0");
+      const startStr = `${pad(startMinutes / 60)}:${pad(startMinutes % 60)}`;
+      const endStr = `${pad(endMinutes / 60)}:${pad(endMinutes % 60)}`;
+
+      const { error } = await supabase.from("time_entries").insert({
+        user_id: user.id,
+        datum: absenceData.date,
+        project_id: null,
+        taetigkeit: "Zeitausgleich",
+        stunden: zaHours,
+        start_time: startStr,
+        end_time: endStr,
+        pause_minutes: 0,
+        pause_start: null,
+        pause_end: null,
+        location_type: "baustelle",
+        has_breakfast_break: false,
+        has_lunch_break: false,
+        notizen: null,
+        week_type: null,
+      });
+
+      if (error) {
+        toast({ variant: "destructive", title: "Fehler", description: "Konnte nicht gespeichert werden" });
+      } else {
+        toast({ title: "Zeitausgleich gebucht", description: `${zaHours}h ZA für ${format(new Date(absenceData.date + "T00:00:00"), "dd.MM.")}` });
+        setShowAbsenceDialog(false);
+        fetchExistingDayEntries(selectedDate);
+      }
+      setSubmittingAbsence(false);
+      return;
+    }
+
+    // Urlaub/Krank/etc: Ganzer Tag, keine existierenden Einträge erlaubt
+    if (existing.length > 0) {
       toast({ variant: "destructive", title: "Bereits Einträge vorhanden", description: "An diesem Tag sind schon Stunden gebucht." });
       setSubmittingAbsence(false);
       return;
@@ -654,7 +738,7 @@ const TimeTracking = () => {
       datum: absenceData.date,
       project_id: null,
       taetigkeit: getAbsenceLabel(absenceData.type),
-      stunden: workingHours,
+      stunden: dailyTarget,
       start_time: DEFAULT_START_TIME,
       end_time: DEFAULT_END_TIME,
       pause_minutes: LUNCH_BREAK_MINUTES,
@@ -670,7 +754,7 @@ const TimeTracking = () => {
     if (error) {
       toast({ variant: "destructive", title: "Fehler", description: "Konnte nicht gespeichert werden" });
     } else {
-      toast({ title: "Erfolg", description: `${getAbsenceLabel(absenceData.type)} (${workingHours}h) erfasst` });
+      toast({ title: "Erfolg", description: `${getAbsenceLabel(absenceData.type)} (${dailyTarget}h) erfasst` });
       setShowAbsenceDialog(false);
       fetchExistingDayEntries(selectedDate);
     }
@@ -1246,9 +1330,33 @@ const TimeTracking = () => {
                 </Select>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-                Die Regelarbeitszeit (07:00–17:07:30, {DAILY_WORK_HOURS}h) mit Vormittags- und Mittagspause wird automatisch für alle Arbeitstage (MO–DO) gebucht.
-              </div>
+              {absenceData.type === "zeitausgleich" && !absenceData.rangeMode ? (
+                <>
+                  <div>
+                    <Label>Stunden ZA</Label>
+                    <Input
+                      type="number"
+                      step="0.25"
+                      min="0.25"
+                      max="12"
+                      value={absenceData.zaHours}
+                      onChange={(e) => setAbsenceData({ ...absenceData, zaHours: e.target.value })}
+                      className="font-mono text-center text-lg"
+                    />
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                    Der Zeitausgleich wird im Anschluss an bereits gebuchte Zeit gesetzt (oder ab 07:00). Den Rest des Tages normal in der Zeiterfassung eintragen.
+                  </div>
+                </>
+              ) : absenceData.type === "zeitausgleich" ? (
+                <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-xs">
+                  Zeitausgleich bitte pro Tag einzeln erfassen (Modus "Einzelner Tag").
+                </div>
+              ) : (
+                <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                  Die Regelarbeitszeit (07:00–17:07:30, {DAILY_WORK_HOURS}h) mit Vormittags- und Mittagspause wird automatisch für alle Arbeitstage (MO–DO) gebucht.
+                </div>
+              )}
 
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setShowAbsenceDialog(false)} disabled={submittingAbsence}>Abbrechen</Button>
