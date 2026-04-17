@@ -21,22 +21,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (!transcript || typeof transcript !== "string") {
       return new Response(
-        JSON.stringify({ success: false, error: "Kein Transkript erhalten" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: "Kein Transkript erhalten" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: "OpenAI API Key nicht konfiguriert" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: "OpenAI API Key nicht konfiguriert" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     const systemPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik (Heizung, Kälte, Lüftung, Sanitär, Service).
 Du erhältst eine Sprachaufnahme eines Technikers, der einen Arbeitsbericht diktiert.
-Das Transkript kann Tippfehler, Spracherkennungsfehler, falsche Groß-/Kleinschreibung und grammatikalische Ungenauigkeiten enthalten.
 
 Extrahiere daraus folgende Informationen und gib NUR valides JSON zurück:
 
@@ -50,20 +49,11 @@ Extrahiere daraus folgende Informationen und gib NUR valides JSON zurück:
 }
 
 Regeln:
-- WICHTIG – Text-Polish: Korrigiere Tippfehler, Spracherkennungsfehler, Grammatik und Groß-/Kleinschreibung
-  still und unauffällig. Verwende korrekte deutsche Fachbegriffe aus dem Heizungs-/Sanitär-/Lüftungshandwerk.
-  Beispiele:
-    "fusbohdenheizung" → "Fußbodenheizung"
-    "verteiler angeschlossen" → "Verteiler angeschlossen"
-    "heikung" → "Heizung"
-    "sahnitär" → "Sanitär"
-  Verändere aber NICHT den fachlichen Inhalt und erfinde NICHTS dazu – nur das korrigieren, was gemeint war.
 - Beschreibung: FORMLOS und KURZ. Keine ganzen Sätze, keine dritte Person, kein "Der Techniker hat...".
-  Stattdessen die Tätigkeit auflisten, z.B.:
+  Stattdessen einfach die Tätigkeit auflisten, z.B.:
   "Montage von 5 Heizungsverteilern\nAnschluss Fußbodenheizung EG\nDichtheitsprüfung durchgeführt"
   Verwende Zeilenumbrüche (\\n) zwischen verschiedenen Tätigkeiten.
 - Material: Jedes erwähnte Material mit Menge als eigenen Eintrag. Typische Materialien: Rohre, Fittings, Ventile, Thermostate, Pumpen, Dichtungen, Isolierung, etc.
-  Materialnamen ebenfalls korrekt schreiben (z.B. "Kupferrohr 15mm", "Heizkörperventil").
 - Wenn keine Materialien erwähnt werden: leeres Array []
 - Wenn kein Kundenname erwähnt: null
 - Antworte NUR mit dem JSON-Objekt, kein Markdown, kein Text drumherum.`;
@@ -94,8 +84,8 @@ Regeln:
         ? "OpenAI API-Key ungültig. Bitte im Supabase Dashboard prüfen."
         : `OpenAI API Fehler: ${response.status}`;
       return new Response(
-        JSON.stringify({ success: false, error: errorMsg }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: errorMsg }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -104,33 +94,25 @@ Regeln:
 
     if (!content) {
       return new Response(
-        JSON.stringify({ success: false, error: "Keine Antwort von OpenAI erhalten" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: "Keine Antwort von OpenAI erhalten" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     // Parse the JSON response from OpenAI
-    let parsed: ParsedResult = { beschreibung: "", materials: [] };
+    let parsed: ParsedResult;
     try {
       // Remove potential markdown code fences
       const cleanJson = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleanJson);
+      if (!parsed.beschreibung || typeof parsed.beschreibung !== "string") {
+        throw new Error("Keine Arbeitsbeschreibung extrahiert");
+      }
     } catch (parseErr) {
       console.error("Failed to parse OpenAI response:", content);
-      // Fallback: Rohtranskript als Beschreibung zurückgeben, damit der Nutzer
-      // nicht das Ganze verliert.
       return new Response(
-        JSON.stringify({
-          success: true,
-          fallback: true,
-          data: {
-            beschreibung: transcript,
-            materials: [],
-            kundeName: null,
-            kundeAdresse: null,
-          },
-        }),
-        { headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: parseErr instanceof Error ? parseErr.message : "KI-Antwort konnte nicht verarbeitet werden", raw: content }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -138,7 +120,7 @@ Regeln:
       JSON.stringify({
         success: true,
         data: {
-          beschreibung: typeof parsed.beschreibung === "string" ? parsed.beschreibung : "",
+          beschreibung: parsed.beschreibung || "",
           materials: Array.isArray(parsed.materials) ? parsed.materials : [],
           kundeName: parsed.kundeName || null,
           kundeAdresse: parsed.kundeAdresse || null,
@@ -149,8 +131,8 @@ Regeln:
   } catch (err) {
     console.error("parse-voice-input error:", err);
     return new Response(
-      JSON.stringify({ success: false, error: (err as Error)?.message || "Unbekannter Fehler" }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({ error: err.message || "Unbekannter Fehler" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
