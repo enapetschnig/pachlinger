@@ -52,6 +52,7 @@ export function useScheduleData() {
           .from("profiles")
           .select("id, vorname, nachname")
           .eq("is_active", true)
+          .eq("is_hidden" as any, false)
           .order("nachname"),
         supabase
           .from("projects")

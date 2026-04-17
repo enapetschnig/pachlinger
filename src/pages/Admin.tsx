@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Shield, User as UserIcon, Send, Mail, Phone, MapPin, Shirt, FileText, Clock, Trash2, Settings, Save, Pencil, Calendar, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getNormalWorkingHours, isWorkingDay, DAILY_WORK_HOURS } from "@/lib/workingHours";
-import { calculateZaBalance } from "@/lib/zaCalculation";
+import { calculateZaBalance, generateZaHistory } from "@/lib/zaCalculation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -29,6 +29,7 @@ type Profile = {
   vorname: string;
   nachname: string;
   is_active: boolean | null;
+  is_hidden?: boolean;
 };
 
 type UserRole = {
@@ -211,7 +212,8 @@ export default function Admin() {
 
     const { data: profilesData } = await supabase
       .from("profiles")
-      .select("id, vorname, nachname, is_active")
+      .select("id, vorname, nachname, is_active, is_hidden" as any)
+      .eq("is_hidden" as any, false)
       .order("nachname");
 
     const { data: rolesData } = await supabase
@@ -332,7 +334,8 @@ export default function Admin() {
       // Get all profiles to find user IDs
       const { data: profilesData } = await supabase
         .from("profiles")
-        .select("id, vorname, nachname");
+        .select("id, vorname, nachname")
+        .eq("is_hidden" as any, false);
 
       if (!profilesData || profilesData.length === 0) {
         setSickNotes([]);
@@ -1639,7 +1642,10 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
 
   // History dialog state
   const [historyUserId, setHistoryUserId] = useState<string | null>(null);
-  const [historyData, setHistoryData] = useState<{ zaHistory: { id: string; hours: number; reason: string; created_at: string; admin_name: string }[]; vacHistory: { id: string; days: number; reason: string; source: string; created_at: string; admin_name: string }[] }>({ zaHistory: [], vacHistory: [] });
+  type ZaHistItem =
+    | { kind: "manual"; id: string; hours: number; reason: string; created_at: string; admin_name: string }
+    | { kind: "auto_month"; id: string; month: number; year: number; earned: number; used: number; net: number; created_at: string };
+  const [historyData, setHistoryData] = useState<{ zaHistory: ZaHistItem[]; vacHistory: { id: string; days: number; reason: string; source: string; created_at: string; admin_name: string }[] }>({ zaHistory: [], vacHistory: [] });
   const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
@@ -1706,9 +1712,10 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
     setHistoryUserId(userId);
     setHistoryLoading(true);
 
-    const [{ data: zaAdj }, { data: vacAdj }] = await Promise.all([
+    const [{ data: zaAdj }, { data: vacAdj }, { data: userEntries }] = await Promise.all([
       supabase.from("za_adjustments").select("id, hours, reason, created_at, adjusted_by").eq("user_id", userId).order("created_at", { ascending: false }),
       supabase.from("vacation_adjustments" as any).select("id, days, reason, source, created_at, adjusted_by").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabase.from("time_entries").select("datum, stunden, taetigkeit").eq("user_id", userId),
     ]);
 
     const allAdminIds = [
@@ -1727,14 +1734,40 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
       adminMap[p.id] = `${p.vorname} ${p.nachname}`.trim();
     });
 
-    setHistoryData({
-      zaHistory: (zaAdj || []).map((d: any) => ({
+    // Automatische Monatsbuchungen aus den Einträgen berechnen
+    const autoHistory = generateZaHistory(
+      (userEntries || []).map(e => ({ datum: e.datum, stunden: e.stunden, taetigkeit: e.taetigkeit })),
+      [],
+      new Date()
+    );
+
+    const combined: ZaHistItem[] = [
+      ...((zaAdj || []) as any[]).map((d: any) => ({
+        kind: "manual" as const,
         id: d.id,
         hours: Number(d.hours),
         reason: d.reason,
         created_at: d.created_at,
         admin_name: adminMap[d.adjusted_by] || "Unbekannt",
       })),
+      ...autoHistory
+        .filter(h => h.kind === "month_close")
+        .map(h => h.kind === "month_close" ? {
+          kind: "auto_month" as const,
+          id: `month_${h.year}_${h.month}`,
+          year: h.year,
+          month: h.month,
+          earned: h.earned,
+          used: h.used,
+          net: h.net,
+          created_at: new Date(h.year, h.month, 0, 23, 59, 59).toISOString(),
+        } : null)
+        .filter((x): x is Extract<ZaHistItem, { kind: "auto_month" }> => x !== null),
+    ];
+    combined.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+    setHistoryData({
+      zaHistory: combined,
       vacHistory: ((vacAdj as any[]) || []).map((d: any) => ({
         id: d.id,
         days: Number(d.days),
@@ -1925,21 +1958,41 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
             ) : (
               <div className="space-y-4 p-1">
                 <div>
-                  <h4 className="font-semibold text-sm mb-2">ZA-Korrekturen</h4>
+                  <h4 className="font-semibold text-sm mb-2">ZA-Verlauf (alle Buchungen)</h4>
                   {historyData.zaHistory.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Keine Einträge</p>
                   ) : (
                     <div className="space-y-2">
-                      {historyData.zaHistory.map(h => (
-                        <div key={h.id} className="text-sm border rounded-md p-2 bg-muted/30">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{h.hours > 0 ? "+" : ""}{h.hours.toFixed(1)}h</span>
-                            <span className="text-muted-foreground text-xs">{format(new Date(h.created_at), "dd.MM.yyyy HH:mm")}</span>
+                      {historyData.zaHistory.map(h => {
+                        if (h.kind === "manual") {
+                          return (
+                            <div key={h.id} className="text-sm border rounded-md p-2 bg-blue-50/50 dark:bg-blue-900/10 border-blue-200">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{h.hours > 0 ? "+" : ""}{h.hours.toFixed(1)}h</span>
+                                  <Badge variant="outline" className="text-xs">Manuelle Korrektur</Badge>
+                                </div>
+                                <span className="text-muted-foreground text-xs">{format(new Date(h.created_at), "dd.MM.yyyy HH:mm")}</span>
+                              </div>
+                              <p className="text-muted-foreground">{h.reason}</p>
+                              <p className="text-xs text-muted-foreground">von {h.admin_name}</p>
+                            </div>
+                          );
+                        }
+                        const monthNames = ["", "Jänner","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+                        return (
+                          <div key={h.id} className="text-sm border rounded-md p-2 bg-muted/30">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${h.net >= 0 ? "text-green-600" : "text-red-600"}`}>{h.net >= 0 ? "+" : ""}{h.net.toFixed(2)}h</span>
+                                <Badge variant="secondary" className="text-xs">Monatsabschluss</Badge>
+                              </div>
+                              <span className="text-muted-foreground text-xs">{monthNames[h.month]} {h.year}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Erarbeitet: +{h.earned.toFixed(2)}h · ZA genommen: -{h.used.toFixed(2)}h</p>
                           </div>
-                          <p className="text-muted-foreground">{h.reason}</p>
-                          <p className="text-xs text-muted-foreground">von {h.admin_name}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

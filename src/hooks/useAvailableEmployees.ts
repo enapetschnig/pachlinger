@@ -29,6 +29,7 @@ export const useAvailableEmployees = (excludeCurrentUser = true) => {
       .from("profiles")
       .select("id, vorname, nachname, is_active")
       .eq("is_active", true)
+      .eq("is_hidden" as any, false)
       .order("nachname");
 
     if (!error && data) {

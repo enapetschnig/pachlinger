@@ -51,6 +51,7 @@ interface TimeEntry {
 interface Profile {
   vorname: string;
   nachname: string;
+  is_hidden?: boolean;
 }
 
 interface Project {
@@ -346,11 +347,11 @@ export default function HoursReport() {
   };
 
   const fetchProfiles = async () => {
-    const { data } = await supabase.from("profiles").select("id, vorname, nachname");
+    const { data } = await supabase.from("profiles").select("id, vorname, nachname, is_hidden" as any);
     if (data) {
       const profileMap: Record<string, Profile> = {};
-      data.forEach((p) => {
-        profileMap[p.id] = { vorname: p.vorname, nachname: p.nachname };
+      (data as any[]).forEach((p) => {
+        profileMap[p.id] = { vorname: p.vorname, nachname: p.nachname, is_hidden: p.is_hidden };
       });
       setProfiles(profileMap);
     }
@@ -1252,7 +1253,7 @@ export default function HoursReport() {
                         <SelectValue placeholder="Mitarbeiter auswählen" />
                       </SelectTrigger>
                       <SelectContent position="popper">
-                        {Object.entries(profiles).map(([id, profile]) => (
+                        {Object.entries(profiles).filter(([, p]) => !p.is_hidden).map(([id, profile]) => (
                           <SelectItem key={id} value={id}>
                             {profile.vorname} {profile.nachname}
                           </SelectItem>

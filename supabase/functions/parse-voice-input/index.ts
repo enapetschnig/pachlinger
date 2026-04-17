@@ -36,6 +36,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const systemPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik (Heizung, Kälte, Lüftung, Sanitär, Service).
 Du erhältst eine Sprachaufnahme eines Technikers, der einen Arbeitsbericht diktiert.
+Das Transkript kann Tippfehler, Spracherkennungsfehler, falsche Groß-/Kleinschreibung und grammatikalische Ungenauigkeiten enthalten.
 
 Extrahiere daraus folgende Informationen und gib NUR valides JSON zurück:
 
@@ -49,11 +50,20 @@ Extrahiere daraus folgende Informationen und gib NUR valides JSON zurück:
 }
 
 Regeln:
+- WICHTIG – Text-Polish: Korrigiere Tippfehler, Spracherkennungsfehler, Grammatik und Groß-/Kleinschreibung
+  still und unauffällig. Verwende korrekte deutsche Fachbegriffe aus dem Heizungs-/Sanitär-/Lüftungshandwerk.
+  Beispiele:
+    "fusbohdenheizung" → "Fußbodenheizung"
+    "verteiler angeschlossen" → "Verteiler angeschlossen"
+    "heikung" → "Heizung"
+    "sahnitär" → "Sanitär"
+  Verändere aber NICHT den fachlichen Inhalt und erfinde NICHTS dazu – nur das korrigieren, was gemeint war.
 - Beschreibung: FORMLOS und KURZ. Keine ganzen Sätze, keine dritte Person, kein "Der Techniker hat...".
-  Stattdessen einfach die Tätigkeit auflisten, z.B.:
+  Stattdessen die Tätigkeit auflisten, z.B.:
   "Montage von 5 Heizungsverteilern\nAnschluss Fußbodenheizung EG\nDichtheitsprüfung durchgeführt"
   Verwende Zeilenumbrüche (\\n) zwischen verschiedenen Tätigkeiten.
 - Material: Jedes erwähnte Material mit Menge als eigenen Eintrag. Typische Materialien: Rohre, Fittings, Ventile, Thermostate, Pumpen, Dichtungen, Isolierung, etc.
+  Materialnamen ebenfalls korrekt schreiben (z.B. "Kupferrohr 15mm", "Heizkörperventil").
 - Wenn keine Materialien erwähnt werden: leeres Array []
 - Wenn kein Kundenname erwähnt: null
 - Antworte NUR mit dem JSON-Objekt, kein Markdown, kein Text drumherum.`;
