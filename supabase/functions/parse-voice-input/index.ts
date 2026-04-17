@@ -35,28 +35,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const systemPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik (Heizung, Kälte, Lüftung, Sanitär, Service).
-Du erhältst eine Sprachaufnahme eines Technikers, der einen Arbeitsbericht diktiert.
+Du erhältst eine Sprachaufnahme eines Technikers, der seine durchgeführten Arbeiten beschreibt.
 
-Extrahiere daraus folgende Informationen und gib NUR valides JSON zurück:
-
-{
-  "beschreibung": "Formlose, stichpunktartige Auflistung der Tätigkeiten",
-  "materials": [
-    { "material": "Materialname", "menge": "Menge mit Einheit" }
-  ],
-  "kundeName": "Name des Kunden (falls erwähnt, sonst null)",
-  "kundeAdresse": "Adresse des Kunden (falls erwähnt, sonst null)"
-}
+Deine Aufgabe: Fasse das zusammen in eine saubere, formlose Auflistung der Tätigkeiten.
 
 Regeln:
-- Beschreibung: FORMLOS und KURZ. Keine ganzen Sätze, keine dritte Person, kein "Der Techniker hat...".
-  Stattdessen einfach die Tätigkeit auflisten, z.B.:
-  "Montage von 5 Heizungsverteilern\nAnschluss Fußbodenheizung EG\nDichtheitsprüfung durchgeführt"
-  Verwende Zeilenumbrüche (\\n) zwischen verschiedenen Tätigkeiten.
-- Material: Jedes erwähnte Material mit Menge als eigenen Eintrag. Typische Materialien: Rohre, Fittings, Ventile, Thermostate, Pumpen, Dichtungen, Isolierung, etc.
-- Wenn keine Materialien erwähnt werden: leeres Array []
-- Wenn kein Kundenname erwähnt: null
-- Antworte NUR mit dem JSON-Objekt, kein Markdown, kein Text drumherum.`;
+- FORMLOS und KURZ. Keine ganzen Sätze, keine dritte Person.
+- Jede Tätigkeit auf einer eigenen Zeile (Zeilenumbruch zwischen den Punkten).
+- Tippfehler, Spracherkennungsfehler und Groß-/Kleinschreibung still korrigieren.
+  Fachbegriffe sauber schreiben (z.B. "Fußbodenheizung", "Heizkörper", "Sanitär").
+- Nichts hinzuerfinden, nichts weglassen. Nur sauber zusammenfassen.
+
+Beispiel-Input: "hab heute fünf heizkörper montiert und die fusbohdenheizung im erdgeschoss angeschlossen dann noch dichtheitsprüfung gemacht"
+Beispiel-Output:
+Montage von 5 Heizkörpern
+Anschluss Fußbodenheizung EG
+Dichtheitsprüfung durchgeführt
+
+Antworte NUR mit dem zusammengefassten Text, kein JSON, kein Markdown, kein Drumherum.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -90,48 +86,19 @@ Regeln:
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = (data.choices?.[0]?.message?.content || "").trim();
 
-    if (!content) {
-      // Fallback: Rohtranskript verwenden
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: {
-            beschreibung: transcript,
-            materials: [],
-            kundeName: null,
-            kundeAdresse: null,
-          },
-        }),
-        { headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Parse the JSON response from OpenAI
-    let parsed: ParsedResult = { beschreibung: "", materials: [] };
-    try {
-      const cleanJson = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(cleanJson);
-    } catch (parseErr) {
-      console.error("Failed to parse OpenAI response:", content);
-      // Fallback: Rohtranskript verwenden, damit die Aufnahme nicht verloren geht
-      parsed = { beschreibung: transcript, materials: [] };
-    }
-
-    // Wenn die KI keine Beschreibung extrahiert hat, Rohtranskript zurückgeben
-    const beschreibung = (typeof parsed.beschreibung === "string" && parsed.beschreibung.trim())
-      ? parsed.beschreibung
-      : transcript;
+    // Fallback: Rohtranskript, falls KI leer geantwortet hat
+    const beschreibung = content || transcript;
 
     return new Response(
       JSON.stringify({
         success: true,
         data: {
           beschreibung,
-          materials: Array.isArray(parsed.materials) ? parsed.materials : [],
-          kundeName: parsed.kundeName || null,
-          kundeAdresse: parsed.kundeAdresse || null,
+          materials: [],
+          kundeName: null,
+          kundeAdresse: null,
         },
       }),
       { headers: { "Content-Type": "application/json", ...corsHeaders } }

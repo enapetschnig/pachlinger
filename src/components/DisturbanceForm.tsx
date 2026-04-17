@@ -203,7 +203,16 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   };
 
   const addMaterial = () => {
-    setMaterials([...materials, { id: crypto.randomUUID(), material: "", menge: "" }]);
+    const newId = crypto.randomUUID();
+    setMaterials([...materials, { id: newId, material: "", menge: "" }]);
+    setTimeout(() => {
+      const el = document.querySelector(`[data-material-id="${newId}"]`) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const input = el.querySelector("input") as HTMLInputElement | null;
+        input?.focus();
+      }
+    }, 50);
   };
 
   const removeMaterial = (id: string) => {
@@ -765,24 +774,12 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             <div className="space-y-3">
               {/* KI-Spracheingabe */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">KI-Spracheingabe: Tätigkeiten und Material diktieren</p>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">KI-Spracheingabe: Tätigkeiten diktieren</p>
                 <VoiceRecorder
                   disabled={saving}
                   onResult={(data) => {
                     if (data.beschreibung) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        beschreibung: data.beschreibung,
-                        kundeName: data.kundeName || prev.kundeName,
-                        kundeAdresse: data.kundeAdresse || prev.kundeAdresse,
-                      }));
-                    }
-                    if (data.materials && data.materials.length > 0) {
-                      setMaterials(data.materials.map((m) => ({
-                        id: crypto.randomUUID(),
-                        material: m.material,
-                        menge: m.menge,
-                      })));
+                      setFormData((prev) => ({ ...prev, beschreibung: data.beschreibung }));
                     }
                   }}
                 />
@@ -818,7 +815,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             {materials.length > 0 && (
               <div className="space-y-2">
                 {materials.map((mat) => (
-                  <div key={mat.id} className="flex gap-2 items-start">
+                  <div key={mat.id} data-material-id={mat.id} className="flex gap-2 items-start">
                     <Input
                       placeholder="Material"
                       value={mat.material}
