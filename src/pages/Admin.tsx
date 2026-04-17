@@ -685,7 +685,7 @@ export default function Admin() {
     <div className="min-h-screen bg-background">
       <PageHeader title="Verwaltung" backPath="/" />
 
-      <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-8">
+      <main className="container mx-auto max-w-7xl px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-8 overflow-x-hidden">
         {/* ===== WARTENDE AKTIVIERUNGEN ===== */}
         {profiles.filter(p => !p.is_active).length > 0 && (
           <section>
@@ -1853,8 +1853,8 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
       </h2>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
               <CardTitle>ZA-Kontostand pro Mitarbeiter</CardTitle>
               <CardDescription>
                 Gutschrift: Überstunden über {DAILY_WORK_HOURS}h/Tag (MO-DO) + Freitags-/Wochenendarbeit • Abbuchung: Zeitausgleich-Einträge
@@ -1864,7 +1864,7 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
               <Label className="text-sm whitespace-nowrap">Monat:</Label>
               <Input
                 type="month"
-                className="w-[180px]"
+                className="w-[150px] sm:w-[180px]"
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(e.target.value)}
               />
@@ -1880,8 +1880,8 @@ function ZAOverviewSection({ profiles }: { profiles: { id: string; vorname: stri
           ) : zaData.length === 0 ? (
             <p className="text-muted-foreground">Keine aktiven Mitarbeiter</p>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="rounded-md border overflow-x-auto -mx-1">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-medium">Mitarbeiter</th>
@@ -2248,8 +2248,8 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
       </h2>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
               <CardTitle>Urlaubssaldo pro Mitarbeiter</CardTitle>
               <CardDescription>
                 Guthaben aus automatischer Jahresgutschrift + Admin-Korrekturen • Verbrauch: Urlaubs-Einträge in der Zeiterfassung
@@ -2259,7 +2259,7 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
               <Label className="text-sm whitespace-nowrap">Monat:</Label>
               <Input
                 type="month"
-                className="w-[180px]"
+                className="w-[150px] sm:w-[180px]"
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(e.target.value)}
               />
@@ -2275,8 +2275,8 @@ function VacationOverviewSection({ profiles }: { profiles: { id: string; vorname
           ) : vacData.length === 0 ? (
             <p className="text-muted-foreground">Keine aktiven Mitarbeiter</p>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="rounded-md border overflow-x-auto -mx-1">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-medium">Mitarbeiter</th>
