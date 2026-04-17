@@ -42,6 +42,7 @@ interface Disturbance {
   kunde_adresse: string | null;
   kunde_telefon: string | null;
   beschreibung: string;
+  material_text?: string | null;
   notizen: string | null;
   unterschrift_kunde: string;
 }
@@ -204,7 +205,21 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
   y += 3;
 
   // ── MATERIAL ──
-  if (materials && materials.length > 0) {
+  // Vorrang: freies Material-Textfeld (neue Struktur), sonst Legacy-Tabelle
+  const matText = (disturbance as any).material_text as string | null | undefined;
+  if (matText && matText.trim()) {
+    section("Verwendetes Material");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...text);
+    const mLines = doc.splitTextToSize(matText.trim(), cw);
+    for (const ln of mLines) {
+      needPage(5);
+      doc.text(ln, m, y);
+      y += 5;
+    }
+    y += 3;
+  } else if (materials && materials.length > 0) {
     section("Material");
     doc.setFillColor(240, 240, 240);
     doc.rect(m, y - 4, cw, 7, "F");

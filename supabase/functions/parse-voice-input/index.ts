@@ -17,7 +17,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { transcript } = await req.json();
+    const { transcript, context, existing } = await req.json();
 
     if (!transcript || typeof transcript !== "string") {
       return new Response(
@@ -34,7 +34,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    const systemPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik (Heizung, Kälte, Lüftung, Sanitär, Service).
+    const contextKind = context === "material" ? "material" : "arbeiten";
+
+    const arbeitenPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik (Heizung, Kälte, Lüftung, Sanitär, Service).
 Du erhältst eine Sprachaufnahme eines Technikers. Schreibe daraus einen sauberen, kundentauglichen Arbeitsbericht
 der durchgeführten Arbeiten.
 
@@ -54,6 +56,32 @@ Fünf Heizkörper wurden montiert. Anschließend erfolgte der Anschluss der Fuß
 
 Antworte NUR mit dem fertigen Arbeitsbericht-Text, kein JSON, kein Markdown, kein Drumherum.`;
 
+    const materialPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik. Der Techniker diktiert eine Liste
+von verwendetem Material mit Mengen.
+
+Format:
+- Jedes Material auf EIGENER Zeile
+- Struktur: "<Menge> <Einheit> <Materialname>" (z.B. "5 Stk Heizkörper", "3 m Kupferrohr 15 mm", "1 Rolle Isolierung")
+- Mengen und Einheiten nicht weglassen, wenn erwähnt. Wenn keine Menge genannt wurde, nur den Materialnamen.
+- Fachbegriffe und Dimensionen sauber schreiben (z.B. "Kupferrohr 15 mm", "Heizkörperventil 1/2 Zoll").
+- KEINE Überschrift, KEINE Erklärsätze, KEINE Aufzählungszeichen wie "-" oder "*". Nur die reine Liste.
+- Tippfehler / Spracherkennungsfehler still korrigieren.
+
+Beispiel-Input: "drei kupferrohre fünfzehn millimeter, fünf heizkörperventile zwei und nochmal isolierung"
+Beispiel-Output:
+3 Stk Kupferrohr 15 mm
+5 Stk Heizkörperventile
+1 Rolle Isolierung
+
+Antworte NUR mit der Material-Liste, kein JSON, kein Markdown, kein Drumherum.`;
+
+    let systemPrompt = contextKind === "material" ? materialPrompt : arbeitenPrompt;
+
+    // Existing content: append so user can keep adding via voice instead of replacing
+    const userContent = existing && typeof existing === "string" && existing.trim()
+      ? `Bestehender Text (NICHT ändern, nur sauber am Ende fortschreiben):\n${existing.trim()}\n\n---\nNeu diktiert:\n${transcript}`
+      : transcript;
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -64,7 +92,7 @@ Antworte NUR mit dem fertigen Arbeitsbericht-Text, kein JSON, kein Markdown, kei
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: transcript },
+          { role: "user", content: userContent },
         ],
         temperature: 0.3,
         max_tokens: 1000,

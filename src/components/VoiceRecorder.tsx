@@ -3,6 +3,7 @@ import { Mic, MicOff, Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ParsedVoiceData {
@@ -15,6 +16,13 @@ interface ParsedVoiceData {
 interface VoiceRecorderProps {
   onResult: (data: ParsedVoiceData) => void;
   disabled?: boolean;
+  compact?: boolean;
+  /** Context for the AI prompt. "arbeiten" = report style, "material" = list of materials */
+  context?: "arbeiten" | "material";
+  /** Existing text – passed to AI so voice input extends instead of replaces */
+  existing?: string;
+  /** Custom label for the non-compact button */
+  label?: string;
 }
 
 // Check browser support
@@ -25,7 +33,7 @@ const isSpeechRecognitionSupported = () => {
   );
 };
 
-export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
+export function VoiceRecorder({ onResult, disabled, compact, context, existing, label }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -114,7 +122,7 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const { data, error: fnError } = await supabase.functions.invoke("parse-voice-input", {
-        body: { transcript: text },
+        body: { transcript: text, context: context || "arbeiten", existing: existing || "" },
         headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
 
@@ -136,10 +144,63 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
   };
 
   if (!isSpeechRecognitionSupported()) {
+    if (compact) return null;
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
         <AlertCircle className="w-4 h-4" />
         <span>Spracherkennung nicht verfügbar. Bitte Chrome oder Edge verwenden.</span>
+      </div>
+    );
+  }
+
+  if (compact) {
+    const iconCls = "h-4 w-4";
+    return (
+      <div className="inline-flex items-center gap-2">
+        {isRecording ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={stopRecording}
+            disabled={disabled}
+            className="gap-1.5 h-8"
+          >
+            <MicOff className={iconCls} />
+            Stopp
+          </Button>
+        ) : isParsing ? (
+          <Button type="button" variant="outline" size="sm" disabled className="gap-1.5 h-8">
+            <Loader2 className={cn(iconCls, "animate-spin")} />
+            KI
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={startRecording}
+            disabled={disabled}
+            className="gap-1.5 h-8"
+            title="Spracheingabe starten"
+          >
+            <Mic className={iconCls} />
+            Diktieren
+          </Button>
+        )}
+        {isRecording && (
+          <span className="flex items-center gap-1 text-xs text-destructive">
+            <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
+            läuft
+          </span>
+        )}
+        {success && <Check className="h-4 w-4 text-green-600" />}
+        {error && (
+          <span className="text-xs text-destructive flex items-center gap-1" title={error}>
+            <AlertCircle className="h-3 w-3" />
+            Fehler
+          </span>
+        )}
       </div>
     );
   }

@@ -66,6 +66,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     kundeName: "",
     kundeAdresse: "",
     beschreibung: "",
+    materialText: "",
   });
 
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -136,11 +137,13 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         kundeName: editData.kunde_name,
         kundeAdresse: editData.kunde_adresse || "",
         beschreibung: editData.beschreibung,
+        materialText: (editData as any).material_text || "",
       });
       setSelectedProjectId(editData.project_id || null);
       setWorkType(editData.project_id ? "projekt" : "kunde");
       loadExistingWorkers(editData.id);
-      loadExistingMaterials(editData.id);
+      // Nur laden, falls noch kein material_text gesetzt ist (Rückwärtskompatibilität)
+      if (!(editData as any).material_text) loadExistingMaterials(editData.id);
     } else {
       setFormData({
         datum: format(new Date(), "yyyy-MM-dd"),
@@ -149,6 +152,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         kundeName: "",
         kundeAdresse: "",
         beschreibung: "",
+        materialText: "",
       });
       setSelectedEmployees([]);
       setMaterials([]);
@@ -156,6 +160,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       setWorkType("kunde");
       setHasBreakfastBreak(false);
       setHasLunchBreak(false);
+      setPendingPhotos([]);
     }
   }, [editData, open]);
 
@@ -323,6 +328,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       kunde_adresse: formData.kundeAdresse.trim() || null,
       kunde_telefon: null as string | null,
       beschreibung: formData.beschreibung.trim(),
+      material_text: formData.materialText.trim() || null,
       notizen: null as string | null,
       project_id: selectedProjectId || null,
       has_breakfast_break: hasBreakfastBreak,
@@ -822,11 +828,14 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               <FileText className="h-4 w-4" />
               Arbeitsdetails
             </h3>
-            <div className="space-y-3">
-              {/* KI-Spracheingabe */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">KI-Spracheingabe: Tätigkeiten diktieren</p>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label htmlFor="beschreibung">Durchgeführte Arbeit *</Label>
                 <VoiceRecorder
+                  compact
+                  context="arbeiten"
+                  existing={formData.beschreibung}
                   disabled={saving}
                   onResult={(data) => {
                     if (data.beschreibung) {
@@ -835,64 +844,87 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                   }}
                 />
               </div>
+              <Textarea
+                id="beschreibung"
+                value={formData.beschreibung}
+                onChange={(e) => setFormData({ ...formData, beschreibung: e.target.value })}
+                placeholder="Arbeiten beschreiben oder rechts oben diktieren…"
+                rows={4}
+                required
+              />
+            </div>
 
-              <div>
-                <Label htmlFor="beschreibung">Durchgeführte Arbeit *</Label>
-                <Textarea
-                  id="beschreibung"
-                  value={formData.beschreibung}
-                  onChange={(e) => setFormData({ ...formData, beschreibung: e.target.value })}
-                  placeholder="Beschreiben Sie die durchgeführten Arbeiten oder nutzen Sie die Spracheingabe oben..."
-                  rows={4}
-                  required
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label htmlFor="material_text" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Verwendetes Material (optional)
+                </Label>
+                <VoiceRecorder
+                  compact
+                  context="material"
+                  existing={formData.materialText}
+                  disabled={saving}
+                  onResult={(data) => {
+                    if (data.beschreibung) {
+                      setFormData((prev) => ({ ...prev, materialText: data.beschreibung }));
+                    }
+                  }}
                 />
               </div>
+              <Textarea
+                id="material_text"
+                value={formData.materialText}
+                onChange={(e) => setFormData({ ...formData, materialText: e.target.value })}
+                placeholder={"Material mit Mengen auflisten oder diktieren, z.B.\n3 Stk Heizkörper\n5 m Kupferrohr 15 mm"}
+                rows={3}
+              />
             </div>
           </div>
-
-          {/* Materials Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Verwendetes Material (optional)
-              </h3>
-              <Button type="button" variant="outline" size="sm" onClick={addMaterial}>
-                <Plus className="h-4 w-4 mr-1" />
-                Material
-              </Button>
-            </div>
-            
-            {materials.length > 0 && (
-              <div className="space-y-2">
-                {materials.map((mat) => (
-                  <div key={mat.id} data-material-id={mat.id} className="flex gap-2 items-start">
-                    <Input
-                      placeholder="Material"
-                      value={mat.material}
-                      onChange={(e) => updateMaterial(mat.id, "material", e.target.value)}
-                      className="flex-1"
-                    />
-                    <Input
-                      placeholder="Menge"
-                      value={mat.menge}
-                      onChange={(e) => updateMaterial(mat.id, "menge", e.target.value)}
-                      className="w-24"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeMaterial(mat.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+          {false && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Verwendetes Material (optional)
+                </h3>
+                <Button type="button" variant="outline" size="sm" onClick={addMaterial}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Material
+                </Button>
               </div>
-            )}
-          </div>
+
+              {materials.length > 0 && (
+                <div className="space-y-2">
+                  {materials.map((mat) => (
+                    <div key={mat.id} data-material-id={mat.id} className="flex gap-2 items-start">
+                      <Input
+                        placeholder="Material"
+                        value={mat.material}
+                        onChange={(e) => updateMaterial(mat.id, "material", e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Menge"
+                        value={mat.menge}
+                        onChange={(e) => updateMaterial(mat.id, "menge", e.target.value)}
+                        className="w-24"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeMaterial(mat.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Photos Section */}
           <div className="space-y-3">
