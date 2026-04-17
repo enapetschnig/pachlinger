@@ -26,6 +26,7 @@ export interface MonthlyZa {
   net: number;
   complete: boolean;
   missingDays: string[];
+  monthOver: boolean;
 }
 
 export interface ZaBalance {
@@ -93,9 +94,11 @@ export function computeMonthlyZa(
 
   const endCheck = new Date(today);
   endCheck.setHours(23, 59, 59, 999);
-  const expectedWorkdays = getExpectedWorkdays(year, month, endCheck);
-  const missingDays = expectedWorkdays.filter((d) => !byDay[d]);
-  const complete = missingDays.length === 0 && lastDay <= endCheck;
+  const monthOver = lastDay <= endCheck;
+  // Anzeige: ALLE MO-DO-Tage des Monats, die noch leer sind (nicht nur bis heute)
+  const allExpectedWorkdays = getExpectedWorkdays(year, month, lastDay);
+  const missingDays = allExpectedWorkdays.filter((d) => !byDay[d]);
+  const complete = missingDays.length === 0 && monthOver;
 
   let earned = 0;
   for (const [datum, { total, hasAbsence }] of Object.entries(byDay)) {
@@ -114,6 +117,7 @@ export function computeMonthlyZa(
     net: Math.round((earned - used) * 1000) / 1000,
     complete,
     missingDays,
+    monthOver,
   };
 }
 

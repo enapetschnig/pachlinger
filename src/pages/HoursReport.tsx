@@ -112,6 +112,7 @@ interface EmployeeBalances {
   vacationUsed: number;
   vacationBalance: number;
   monthComplete: boolean;
+  monthOver: boolean;
   missingDays: number;
 }
 
@@ -291,6 +292,7 @@ export default function HoursReport() {
         vacationUsed: vacationDatesTotal.size,
         vacationBalance: vacationGranted - vacationDatesTotal.size,
         monthComplete: monthly.complete,
+        monthOver: monthly.monthOver,
         missingDays: monthly.missingDays.length,
       });
       setZaHistory(history);
@@ -1235,6 +1237,11 @@ export default function HoursReport() {
                           </p>
                           <p className="text-xs text-muted-foreground">Monat vollständig</p>
                         </>
+                      ) : !employeeBalances.monthOver ? (
+                        <>
+                          <p className="text-xl font-bold text-muted-foreground">—</p>
+                          <p className="text-xs text-muted-foreground">Monat läuft noch · {employeeBalances.missingDays} Tag(e) offen</p>
+                        </>
                       ) : (
                         <>
                           <p className="text-xl font-bold text-muted-foreground">—</p>
@@ -1261,6 +1268,8 @@ export default function HoursReport() {
                           <p className="text-sm text-muted-foreground">Überstunden</p>
                           {employeeBalances?.monthComplete ? (
                             <p className="text-2xl font-bold">{reportMetrics.totalOvertime.toFixed(2)} h</p>
+                          ) : employeeBalances && !employeeBalances.monthOver ? (
+                            <p className="text-lg font-semibold text-muted-foreground">Monat läuft noch</p>
                           ) : (
                             <p className="text-lg font-semibold text-muted-foreground">Monat unvollständig</p>
                           )}
