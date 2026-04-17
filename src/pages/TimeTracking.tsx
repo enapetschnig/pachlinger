@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Info, Coffee, UtensilsCrossed, Copy, Zap, Check, ChevronsUpDown } from "lucide-react";
+import { Clock, Plus, AlertTriangle, CheckCircle2, Calendar, Sun, Trash2, Coffee, UtensilsCrossed, Copy, Zap, Check, ChevronsUpDown } from "lucide-react";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
 import { PageHeader } from "@/components/PageHeader";
 import { format } from "date-fns";
@@ -28,7 +28,6 @@ import {
   blockSpansBreakfast,
   blockSpansLunch,
   getNormalWorkingHours,
-  getWeeklyTargetHours,
   getTotalWorkingHours,
   timeToMinutes,
   isWorkingDay,
@@ -39,7 +38,6 @@ import {
   LUNCH_BREAK_MINUTES,
   BREAKFAST_BREAK_START,
   BREAKFAST_BREAK_END,
-  DAILY_WORK_HOURS,
 } from "@/lib/workingHours";
 
 type Project = {
@@ -876,22 +874,7 @@ const TimeTracking = () => {
                 <Label htmlFor="date">Datum</Label>
                 <Input id="date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} required />
                 <p className="text-sm text-muted-foreground">{format(new Date(selectedDate), "EEEE, dd. MMMM yyyy", { locale: de })}</p>
-              </div>
-
-              {/* Arbeitszeit-Info */}
-              <div className="rounded-lg border bg-card p-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-sm">{getWeeklyTargetHours()}h Wochensoll</Badge>
-                  <span className="text-sm text-muted-foreground">MO-DO: {DAILY_WORK_HOURS}h (07:00–17:07:30)</span>
-                </div>
-              </div>
-
-              {/* Hinweis: Mehrere Baustellen */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  Bei mehreren Baustellen bitte verschiedene Zeitblöcke eintragen. Die Vormittagspause (09:00-09:15) zählt als Arbeitszeit, die Mittagspause (12:00-12:30) wird abgezogen.
-                </p>
+                <p className="text-xs text-muted-foreground">MO–DO · 07:00 – 17:07:30</p>
               </div>
 
               {/* Bestehende Tageseinträge */}
@@ -1070,7 +1053,7 @@ const TimeTracking = () => {
                             <Label>Von</Label>
                             <Input
                               type="time"
-                              step="1"
+                              step="900"
                               value={block.startTime}
                               onChange={(e) => updateBlock(block.id, { startTime: e.target.value })}
                               className="text-center font-mono"
@@ -1080,7 +1063,7 @@ const TimeTracking = () => {
                             <Label>Bis</Label>
                             <Input
                               type="time"
-                              step="1"
+                              step="900"
                               value={block.endTime}
                               onChange={(e) => updateBlock(block.id, { endTime: e.target.value })}
                               className="text-center font-mono"
@@ -1090,32 +1073,33 @@ const TimeTracking = () => {
 
                         {/* Pausen */}
                         <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-                          <p className="text-sm font-medium text-muted-foreground">Pausen</p>
-
                           {/* Vormittagspause */}
                           <div className="space-y-2">
-                            <div className="flex items-center gap-3">
+                            <label htmlFor={`breakfast-${block.id}`} className="flex items-start gap-3 min-h-11 cursor-pointer">
                               <Checkbox
                                 id={`breakfast-${block.id}`}
                                 checked={block.hasBreakfastBreak}
                                 disabled={breakfastTaken || (breakfastInBlocks && !block.hasBreakfastBreak)}
                                 onCheckedChange={(checked) => updateBlock(block.id, { hasBreakfastBreak: !!checked })}
+                                className="mt-1"
                               />
-                              <label htmlFor={`breakfast-${block.id}`} className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
-                                <Coffee className="w-4 h-4 text-amber-600" />
-                                <span>Vormittagspause</span>
-                                <Badge variant="outline" className="text-xs ml-auto">zählt als Arbeitszeit</Badge>
-                              </label>
-                            </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Coffee className="w-4 h-4 text-amber-600 shrink-0" />
+                                  <span className="text-sm font-medium">Vormittagspause (09:00–09:15)</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">Wird zur Arbeitszeit gezählt</p>
+                              </div>
+                            </label>
                             {block.hasBreakfastBreak && (
                               <div className="grid grid-cols-2 gap-2 pl-8">
                                 <div>
                                   <label className="text-xs text-muted-foreground">Von</label>
-                                  <Input type="time" value={block.breakfastStart} onChange={(e) => updateBlock(block.id, { breakfastStart: e.target.value })} className="h-9 text-sm font-mono" />
+                                  <Input type="time" step="900" value={block.breakfastStart} onChange={(e) => updateBlock(block.id, { breakfastStart: e.target.value })} className="h-10 text-sm font-mono" />
                                 </div>
                                 <div>
                                   <label className="text-xs text-muted-foreground">Bis</label>
-                                  <Input type="time" value={block.breakfastEnd} onChange={(e) => updateBlock(block.id, { breakfastEnd: e.target.value })} className="h-9 text-sm font-mono" />
+                                  <Input type="time" step="900" value={block.breakfastEnd} onChange={(e) => updateBlock(block.id, { breakfastEnd: e.target.value })} className="h-10 text-sm font-mono" />
                                 </div>
                               </div>
                             )}
@@ -1126,28 +1110,31 @@ const TimeTracking = () => {
 
                           {/* Mittagspause */}
                           <div className="space-y-2">
-                            <div className="flex items-center gap-3">
+                            <label htmlFor={`lunch-${block.id}`} className="flex items-start gap-3 min-h-11 cursor-pointer">
                               <Checkbox
                                 id={`lunch-${block.id}`}
                                 checked={block.hasLunchBreak}
                                 disabled={lunchTaken || (lunchInBlocks && !block.hasLunchBreak)}
                                 onCheckedChange={(checked) => updateBlock(block.id, { hasLunchBreak: !!checked })}
+                                className="mt-1"
                               />
-                              <label htmlFor={`lunch-${block.id}`} className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
-                                <UtensilsCrossed className="w-4 h-4 text-orange-600" />
-                                <span>Mittagspause</span>
-                                <Badge variant="outline" className="text-xs text-destructive border-destructive/30 ml-auto">wird abgezogen</Badge>
-                              </label>
-                            </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <UtensilsCrossed className="w-4 h-4 text-orange-600 shrink-0" />
+                                  <span className="text-sm font-medium">Mittagspause (12:00–12:30)</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">Wird von der Arbeitszeit abgezogen</p>
+                              </div>
+                            </label>
                             {block.hasLunchBreak && (
                               <div className="grid grid-cols-2 gap-2 pl-8">
                                 <div>
                                   <label className="text-xs text-muted-foreground">Von</label>
-                                  <Input type="time" value={block.lunchStart} onChange={(e) => updateBlock(block.id, { lunchStart: e.target.value })} className="h-9 text-sm font-mono" />
+                                  <Input type="time" step="900" value={block.lunchStart} onChange={(e) => updateBlock(block.id, { lunchStart: e.target.value })} className="h-10 text-sm font-mono" />
                                 </div>
                                 <div>
                                   <label className="text-xs text-muted-foreground">Bis</label>
-                                  <Input type="time" value={block.lunchEnd} onChange={(e) => updateBlock(block.id, { lunchEnd: e.target.value })} className="h-9 text-sm font-mono" />
+                                  <Input type="time" step="900" value={block.lunchEnd} onChange={(e) => updateBlock(block.id, { lunchEnd: e.target.value })} className="h-10 text-sm font-mono" />
                                 </div>
                               </div>
                             )}
@@ -1173,7 +1160,7 @@ const TimeTracking = () => {
 
                   {/* Weiterer Block */}
                   <Button type="button" variant="outline" onClick={addTimeBlock} className="w-full gap-2 border-dashed">
-                    <Plus className="w-4 h-4" />Weiteren Zeitblock hinzufügen
+                    <Plus className="w-4 h-4" />Weitere Baustelle hinzufügen
                   </Button>
 
                   {/* Gesamt */}

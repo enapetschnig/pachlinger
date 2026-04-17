@@ -1541,7 +1541,7 @@ export default function HoursReport() {
                       <Label>Von</Label>
                       <Input
                         type="time"
-                        step="1"
+                        step="900"
                         value={editingEntry.start_time}
                         onChange={(e) => setEditingEntry((c) => c ? { ...c, start_time: e.target.value } : c)}
                         className="font-mono"
@@ -1551,7 +1551,7 @@ export default function HoursReport() {
                       <Label>Bis</Label>
                       <Input
                         type="time"
-                        step="1"
+                        step="900"
                         value={editingEntry.end_time}
                         onChange={(e) => setEditingEntry((c) => c ? { ...c, end_time: e.target.value } : c)}
                         className="font-mono"

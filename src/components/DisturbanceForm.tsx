@@ -632,6 +632,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                     <Input
                       id="startTime"
                       type="time"
+                      step="900"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                       required
@@ -642,6 +643,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                     <Input
                       id="endTime"
                       type="time"
+                      step="900"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                       required
@@ -657,25 +659,23 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
 
             {/* Pausen */}
             <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-              <p className="text-sm font-medium text-muted-foreground">Pausen</p>
-
               <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <Checkbox id="breakfastBreak" checked={hasBreakfastBreak} disabled={breakfastTaken} onCheckedChange={(checked) => setHasBreakfastBreak(checked === true)} />
-                  <Label htmlFor="breakfastBreak" className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
-                    Vormittagspause
-                    <span className="text-xs text-muted-foreground ml-auto">zählt als Arbeitszeit</span>
-                  </Label>
-                </div>
+                <label htmlFor="breakfastBreak" className="flex items-start gap-3 min-h-11 cursor-pointer">
+                  <Checkbox id="breakfastBreak" checked={hasBreakfastBreak} disabled={breakfastTaken} onCheckedChange={(checked) => setHasBreakfastBreak(checked === true)} className="mt-1" />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Vormittagspause (09:00–09:15)</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Wird zur Arbeitszeit gezählt</p>
+                  </div>
+                </label>
                 {hasBreakfastBreak && (
                   <div className="grid grid-cols-2 gap-2 pl-8">
                     <div>
                       <label className="text-xs text-muted-foreground">Von</label>
-                      <Input type="time" value={breakfastStart} onChange={(e) => setBreakfastStart(e.target.value)} className="h-9 text-sm font-mono" />
+                      <Input type="time" step="900" value={breakfastStart} onChange={(e) => setBreakfastStart(e.target.value)} className="h-10 text-sm font-mono" />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Bis</label>
-                      <Input type="time" value={breakfastEnd} onChange={(e) => setBreakfastEnd(e.target.value)} className="h-9 text-sm font-mono" />
+                      <Input type="time" step="900" value={breakfastEnd} onChange={(e) => setBreakfastEnd(e.target.value)} className="h-10 text-sm font-mono" />
                     </div>
                   </div>
                 )}
@@ -683,22 +683,22 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <Checkbox id="lunchBreak" checked={hasLunchBreak} disabled={lunchTaken} onCheckedChange={(checked) => setHasLunchBreak(checked === true)} />
-                  <Label htmlFor="lunchBreak" className="flex-1 flex items-center gap-2 text-sm cursor-pointer">
-                    Mittagspause
-                    <span className="text-xs text-destructive ml-auto">wird abgezogen</span>
-                  </Label>
-                </div>
+                <label htmlFor="lunchBreak" className="flex items-start gap-3 min-h-11 cursor-pointer">
+                  <Checkbox id="lunchBreak" checked={hasLunchBreak} disabled={lunchTaken} onCheckedChange={(checked) => setHasLunchBreak(checked === true)} className="mt-1" />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Mittagspause (12:00–12:30)</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Wird von der Arbeitszeit abgezogen</p>
+                  </div>
+                </label>
                 {hasLunchBreak && (
                   <div className="grid grid-cols-2 gap-2 pl-8">
                     <div>
                       <label className="text-xs text-muted-foreground">Von</label>
-                      <Input type="time" value={lunchStart} onChange={(e) => setLunchStart(e.target.value)} className="h-9 text-sm font-mono" />
+                      <Input type="time" step="900" value={lunchStart} onChange={(e) => setLunchStart(e.target.value)} className="h-10 text-sm font-mono" />
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Bis</label>
-                      <Input type="time" value={lunchEnd} onChange={(e) => setLunchEnd(e.target.value)} className="h-9 text-sm font-mono" />
+                      <Input type="time" step="900" value={lunchEnd} onChange={(e) => setLunchEnd(e.target.value)} className="h-10 text-sm font-mono" />
                     </div>
                   </div>
                 )}
