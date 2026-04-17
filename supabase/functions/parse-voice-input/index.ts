@@ -35,24 +35,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const systemPrompt = `Du bist ein Assistent für FASCHING Gebäudetechnik (Heizung, Kälte, Lüftung, Sanitär, Service).
-Du erhältst eine Sprachaufnahme eines Technikers, der seine durchgeführten Arbeiten beschreibt.
+Du erhältst eine Sprachaufnahme eines Technikers. Schreibe daraus einen sauberen, kundentauglichen Arbeitsbericht
+der durchgeführten Arbeiten.
 
-Deine Aufgabe: Fasse das zusammen in eine saubere, formlose Auflistung der Tätigkeiten.
-
-Regeln:
-- FORMLOS und KURZ. Keine ganzen Sätze, keine dritte Person.
-- Jede Tätigkeit auf einer eigenen Zeile (Zeilenumbruch zwischen den Punkten).
+Stil:
+- Sachlich und professionell – so, wie er auf einem Arbeitsbericht an den Kunden steht.
+- Vollständige deutsche Sätze im Präteritum oder Perfekt (z.B. "Heizkörper wurden montiert" / "Die Dichtheitsprüfung wurde durchgeführt").
+- Keine Ich-Form, keine Füllwörter ("also", "dann halt", "hab", "so"), keine Umgangssprache.
 - Tippfehler, Spracherkennungsfehler und Groß-/Kleinschreibung still korrigieren.
-  Fachbegriffe sauber schreiben (z.B. "Fußbodenheizung", "Heizkörper", "Sanitär").
-- Nichts hinzuerfinden, nichts weglassen. Nur sauber zusammenfassen.
+  Fachbegriffe korrekt schreiben (z.B. "Fußbodenheizung", "Heizkörper", "Sanitär").
+- Logisch gliedern: mehrere Tätigkeiten durch Zeilenumbrüche oder Aufzählungspunkte trennen,
+  wenn die Reihenfolge/Struktur das erleichtert.
+- Nichts hinzuerfinden und nichts weglassen, was fachlich relevant ist.
 
-Beispiel-Input: "hab heute fünf heizkörper montiert und die fusbohdenheizung im erdgeschoss angeschlossen dann noch dichtheitsprüfung gemacht"
+Beispiel-Input: "also hab heute fünf heizkörper montiert und dann noch die fusbohdenheizung im erdgeschoss angeschlossen und am schluss ne dichtheitsprüfung gemacht"
 Beispiel-Output:
-Montage von 5 Heizkörpern
-Anschluss Fußbodenheizung EG
-Dichtheitsprüfung durchgeführt
+Fünf Heizkörper wurden montiert. Anschließend erfolgte der Anschluss der Fußbodenheizung im Erdgeschoss. Abschließend wurde eine Dichtheitsprüfung durchgeführt.
 
-Antworte NUR mit dem zusammengefassten Text, kein JSON, kein Markdown, kein Drumherum.`;
+Antworte NUR mit dem fertigen Arbeitsbericht-Text, kein JSON, kein Markdown, kein Drumherum.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
