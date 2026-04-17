@@ -109,6 +109,7 @@ const TimeTracking = () => {
   const [newProjectKundeName, setNewProjectKundeName] = useState("");
   const [pendingBlockIdForNewProject, setPendingBlockIdForNewProject] = useState<string | null>(null);
   const [existingDayEntries, setExistingDayEntries] = useState<ExistingEntry[]>([]);
+  const [absenceDayEntries, setAbsenceDayEntries] = useState<ExistingEntry[]>([]);
   const [loadingDayEntries, setLoadingDayEntries] = useState(false);
   const [showAbsenceDialog, setShowAbsenceDialog] = useState(false);
   const [absenceData, setAbsenceData] = useState({
@@ -423,6 +424,36 @@ const TimeTracking = () => {
   useEffect(() => {
     fetchExistingDayEntries(selectedDate);
   }, [selectedDate]);
+
+  // Lade Einträge für das Dialog-Datum (für ZA-Dialog)
+  useEffect(() => {
+    if (!showAbsenceDialog) return;
+    const loadAbsenceDayEntries = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("time_entries")
+        .select(`id, start_time, end_time, stunden, taetigkeit, location_type, projects (name, plz)`)
+        .eq("user_id", user.id)
+        .eq("datum", absenceData.date)
+        .order("start_time");
+      if (data) {
+        setAbsenceDayEntries(data.map((e: any) => ({
+          id: e.id,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          stunden: e.stunden,
+          taetigkeit: e.taetigkeit,
+          location_type: e.location_type,
+          project_name: e.projects?.name || null,
+          plz: e.projects?.plz || null,
+        })));
+      } else {
+        setAbsenceDayEntries([]);
+      }
+    };
+    loadAbsenceDayEntries();
+  }, [showAbsenceDialog, absenceData.date]);
 
   useEffect(() => {
     fetchProjects();
@@ -1326,6 +1357,31 @@ const TimeTracking = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Bereits gebuchte Einträge für das gewählte Datum */}
+              {!absenceData.rangeMode && absenceDayEntries.length > 0 && (
+                <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    Bereits gebuchte Zeiten an diesem Tag
+                  </div>
+                  <div className="space-y-1">
+                    {absenceDayEntries.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between text-xs bg-background/60 rounded px-2 py-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            {entry.start_time?.substring(0, 5)} – {entry.end_time?.substring(0, 5)}
+                          </Badge>
+                          <span className="truncate max-w-[150px]">
+                            {entry.taetigkeit === "Zeitausgleich" ? "ZA" : (entry.project_name || entry.taetigkeit || "Werkstatt")}
+                          </span>
+                        </div>
+                        <span className="font-medium">{Number(entry.stunden).toFixed(2)}h</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {absenceData.type === "zeitausgleich" && !absenceData.rangeMode ? (
                 <>
