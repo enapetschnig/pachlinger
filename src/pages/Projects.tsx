@@ -24,6 +24,7 @@ type Project = {
   beschreibung: string | null;
   adresse: string | null;
   plz: string | null;
+  kunde_name: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -308,6 +309,7 @@ const Projects = () => {
         beschreibung: editProject.beschreibung?.trim() || null,
         adresse: editProject.adresse?.trim() || null,
         plz: editProject.plz.trim(),
+        kunde_name: editProject.kunde_name?.trim() || null,
       })
       .eq("id", editProject.id);
 
@@ -893,6 +895,14 @@ const Projects = () => {
                   id="edit-adresse"
                   value={editProject.adresse || ''}
                   onChange={(e) => setEditProject({ ...editProject, adresse: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-kunde">Kundenname</Label>
+                <Input
+                  id="edit-kunde"
+                  value={editProject.kunde_name || ''}
+                  onChange={(e) => setEditProject({ ...editProject, kunde_name: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
