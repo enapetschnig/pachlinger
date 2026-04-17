@@ -34,8 +34,10 @@ type RecentTimeEntry = {
   disturbance_id: string | null;
   project_id: string | null;
   location_type: string | null;
+  user_id: string;
   projects: { name: string } | null;
-  disturbances: { kunde_name: string } | null;
+  disturbances: { kunde_name: string; project_id: string | null } | null;
+  profiles: { vorname: string; nachname: string } | null;
 };
 
 export default function Index() {
@@ -68,7 +70,7 @@ export default function Index() {
   const fetchRecentEntries = async (userId: string, role: string | null) => {
     let query = supabase
       .from("time_entries")
-      .select("id, datum, stunden, taetigkeit, disturbance_id, project_id, location_type, projects(name), disturbances(kunde_name)")
+      .select("id, datum, stunden, taetigkeit, disturbance_id, project_id, location_type, user_id, projects(name), disturbances(kunde_name, project_id)")
       .order("datum", { ascending: false });
 
     if (role === "mitarbeiter") {
@@ -80,7 +82,34 @@ export default function Index() {
     const { data } = await query;
 
     if (data) {
-      setRecentEntries(data as any);
+      // Profile-Namen separat nachladen (Admin sieht alle)
+      const uids = Array.from(new Set(data.map((e: any) => e.user_id)));
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, vorname, nachname")
+        .in("id", uids);
+      const profMap: Record<string, { vorname: string; nachname: string }> = {};
+      (profs || []).forEach((p: any) => { profMap[p.id] = { vorname: p.vorname, nachname: p.nachname }; });
+
+      // Arbeitsberichte: Projekt-Namen nachladen wenn disturbance.project_id gesetzt
+      const disturbanceProjectIds = data
+        .filter((e: any) => e.location_type === "regie" && e.disturbances?.project_id)
+        .map((e: any) => e.disturbances.project_id as string);
+      let projectNameMap: Record<string, string> = {};
+      if (disturbanceProjectIds.length > 0) {
+        const { data: projs } = await supabase
+          .from("projects")
+          .select("id, name")
+          .in("id", Array.from(new Set(disturbanceProjectIds)));
+        (projs || []).forEach((p: any) => { projectNameMap[p.id] = p.name; });
+      }
+
+      const enriched = data.map((e: any) => ({
+        ...e,
+        profiles: profMap[e.user_id] || null,
+        _disturbanceProjectName: e.disturbances?.project_id ? projectNameMap[e.disturbances.project_id] : null,
+      }));
+      setRecentEntries(enriched as any);
     }
   };
 
@@ -572,10 +601,50 @@ export default function Index() {
                   <CardContent className="p-3">
                     <div className="flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-base truncate">
-                            {entry.location_type === "regie" ? `Arbeitsbericht: ${entry.disturbances?.kunde_name || "Arbeitsbericht"}` : (entry.projects?.name || (entry.disturbance_id ? "Arbeitsbericht" : "Werkstatt"))}
-                          </p>
-                        <p className="text-sm text-muted-foreground truncate">{entry.taetigkeit}</p>
+                          {(() => {
+                            const isRegie = entry.location_type === "regie" || entry.disturbance_id;
+                            const disturbanceProjectName = (entry as any)._disturbanceProjectName;
+                            const workerName = entry.profiles
+                              ? `${entry.profiles.vorname} ${entry.profiles.nachname}`.trim()
+                              : null;
+
+                            let primary: string;
+                            let secondary: string;
+
+                            if (isRegie) {
+                              // Arbeitsbericht
+                              const kunde = entry.disturbances?.kunde_name;
+                              if (disturbanceProjectName) {
+                                primary = `Arbeitsbericht: ${disturbanceProjectName}`;
+                              } else if (kunde) {
+                                primary = `Arbeitsbericht: ${kunde}`;
+                              } else {
+                                primary = "Arbeitsbericht";
+                              }
+                              secondary = isAdmin && workerName
+                                ? `gebucht von ${workerName}${entry.taetigkeit ? ` · ${entry.taetigkeit}` : ""}`
+                                : entry.taetigkeit || "";
+                            } else if (entry.projects?.name) {
+                              // Projekt-Buchung
+                              primary = `Projekt: ${entry.projects.name}`;
+                              secondary = isAdmin && workerName
+                                ? `gebucht von ${workerName}${entry.taetigkeit ? ` · ${entry.taetigkeit}` : ""}`
+                                : entry.taetigkeit || "";
+                            } else {
+                              // Werkstatt
+                              primary = "Werkstatt";
+                              secondary = isAdmin && workerName
+                                ? `gebucht von ${workerName}${entry.taetigkeit ? ` · ${entry.taetigkeit}` : ""}`
+                                : entry.taetigkeit || "";
+                            }
+
+                            return (
+                              <>
+                                <p className="font-semibold text-base truncate">{primary}</p>
+                                {secondary && <p className="text-sm text-muted-foreground truncate">{secondary}</p>}
+                              </>
+                            );
+                          })()}
                       </div>
                       <div className="text-right ml-3 shrink-0">
                         <p className="font-bold">{entry.stunden} h</p>
