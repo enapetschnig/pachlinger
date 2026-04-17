@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, User, Mail, Phone, MapPin, FileText, Package, Plus, Trash2, FolderOpen, Check, ChevronsUpDown } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, MapPin, FileText, Package, Plus, Trash2, FolderOpen, Check, ChevronsUpDown, Camera, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -73,6 +73,8 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string; plz: string; adresse?: string; kunde_name?: string; kunde_email?: string; kunde_telefon?: string }[]>([]);
+  const [pendingPhotos, setPendingPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { breakfastTaken, lunchTaken } = useBreakValidation(
     userId,
@@ -215,6 +217,46 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     }, 50);
   };
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newOnes = Array.from(files)
+      .filter((f) => f.type.startsWith("image/") && f.size <= 10 * 1024 * 1024)
+      .map((file) => ({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }));
+    setPendingPhotos((prev) => [...prev, ...newOnes]);
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
+  const removePhoto = (id: string) => {
+    setPendingPhotos((prev) => {
+      const toRemove = prev.find((p) => p.id === id);
+      if (toRemove) URL.revokeObjectURL(toRemove.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  };
+
+  const uploadPendingPhotos = async (disturbanceId: string, userId: string, projectId: string | null) => {
+    for (const { file } of pendingPhotos) {
+      const fileName = `${disturbanceId}/${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage.from("disturbance-photos").upload(fileName, file);
+      if (uploadErr) {
+        console.error("Photo upload failed:", uploadErr);
+        continue;
+      }
+      await supabase.from("disturbance_photos").insert({
+        disturbance_id: disturbanceId,
+        user_id: userId,
+        file_path: fileName,
+        file_name: file.name,
+      });
+      // Auch in Projekt-Fotos ablegen, wenn Projekt verknüpft
+      if (projectId) {
+        const projectFileName = `${projectId}/arbeitsbericht_${disturbanceId}_${Date.now()}_${file.name}`;
+        await supabase.storage.from("project-photos").upload(projectFileName, file);
+      }
+    }
+  };
+
   const removeMaterial = (id: string) => {
     setMaterials(materials.filter(m => m.id !== id));
   };
@@ -306,6 +348,11 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       // Update time entries: delete old ones and recreate
       await createTimeEntriesForDisturbance(editData.id, user.id, stunden, disturbanceData);
 
+      if (pendingPhotos.length > 0) {
+        await uploadPendingPhotos(editData.id, user.id, selectedProjectId);
+        setPendingPhotos([]);
+      }
+
       toast({ title: "Erfolg", description: "Arbeitsbericht wurde aktualisiert" });
     } else {
       const { data: newDisturbance, error } = await supabase
@@ -353,6 +400,10 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
 
       // Create time entries for creator and team
       await createTimeEntriesForDisturbance(newDisturbance.id, user.id, stunden, disturbanceData);
+
+      if (pendingPhotos.length > 0) {
+        await uploadPendingPhotos(newDisturbance.id, user.id, selectedProjectId);
+      }
 
       toast({ title: "Erfolg", description: "Arbeitsbericht wurde erfasst" });
 
@@ -841,6 +892,60 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Photos Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium flex items-center gap-2">
+                <Camera className="h-4 w-4" />
+                Fotos (optional)
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => photoInputRef.current?.click()}
+                className="gap-1"
+              >
+                <Plus className="h-4 w-4" />
+                Foto aufnehmen / hinzufügen
+              </Button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={handlePhotoSelect}
+              />
+            </div>
+            {pendingPhotos.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {pendingPhotos.map((p) => (
+                  <div key={p.id} className="relative group aspect-square">
+                    <img
+                      src={p.previewUrl}
+                      alt={p.file.name}
+                      className="w-full h-full object-cover rounded-md border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6"
+                      onClick={() => removePhoto(p.id)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Fotos landen am Ende der PDF und im Projekt-Ordner unter Fotos (falls ein Projekt verknüpft ist).
+            </p>
           </div>
         </form>
         </div>
