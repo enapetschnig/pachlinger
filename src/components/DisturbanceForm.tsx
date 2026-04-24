@@ -452,7 +452,22 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         setPendingPhotos([]);
       }
 
-      toast({ title: "Erfolg", description: "Arbeitsbericht wurde aktualisiert" });
+      const wasDraft = (editData as any).status === "entwurf";
+      toast({
+        title: "Erfolg",
+        description: wasDraft ? "Arbeitsbericht wurde erfasst" : "Arbeitsbericht wurde aktualisiert",
+      });
+
+      // Entwurf wird nach dem Speichern wie ein neuer Bericht behandelt:
+      // direkt zur Unterschrift weiterleiten
+      if (wasDraft) {
+        draftIdRef.current = null;
+        submitLock.current = false;
+        setSaving(false);
+        onOpenChange(false);
+        navigate(`/disturbances/${editData.id}?openSignature=true`);
+        return;
+      }
     } else {
       // Wenn bereits ein Entwurf existiert (draftIdRef), diesen updaten statt neu einzufügen
       let newDisturbance: any;
@@ -1163,7 +1178,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
             const form = document.querySelector('form');
             if (form) form.requestSubmit();
           }} disabled={saving}>
-            {saving ? "Speichern..." : editData ? "Aktualisieren" : "Arbeitsbericht erfassen"}
+            {saving ? "Speichern..." : (editData && (editData as any).status !== "entwurf") ? "Aktualisieren" : "Arbeitsbericht erfassen"}
           </Button>
         </div>
       </DialogContent>
