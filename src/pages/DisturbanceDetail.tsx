@@ -314,6 +314,8 @@ const DisturbanceDetail = () => {
   };
 
   const canEdit = disturbance && (currentUserId === disturbance.user_id || isAdmin);
+  // Löschen: Admin darf immer; MA nur eigene Entwürfe
+  const canDelete = disturbance && (isAdmin || (currentUserId === disturbance.user_id && disturbance.status === "entwurf"));
 
   if (loading) {
     return (
@@ -377,34 +379,34 @@ const DisturbanceDetail = () => {
               </Button>
             )}
             {canEdit && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setShowEditForm(true)}>
-                  <Edit className="h-4 w-4 mr-1" />
-                  Bearbeiten
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={deleting}>
-                      <Trash2 className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={() => setShowEditForm(true)}>
+                <Edit className="h-4 w-4 mr-1" />
+                Bearbeiten
+              </Button>
+            )}
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" disabled={deleting}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Löschen
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Arbeitsbericht löschen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Diese Aktion kann nicht rückgängig gemacht werden. Der Arbeitsbericht und alle zugehörigen Materialien werden endgültig gelöscht.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
                       Löschen
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Arbeitsbericht löschen?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Diese Aktion kann nicht rückgängig gemacht werden. Der Arbeitsbericht und alle zugehörigen Materialien werden endgültig gelöscht.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                        Löschen
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         </div>

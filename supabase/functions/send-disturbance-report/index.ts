@@ -43,9 +43,19 @@ interface Disturbance {
   kunde_telefon: string | null;
   beschreibung: string;
   material_text?: string | null;
+  werkzeug_zone?: string | null;
   notizen: string | null;
   unterschrift_kunde: string;
 }
+
+const WERKZEUG_ZONE_LABELS: Record<string, string> = {
+  zone_1: "Zone 1 (0 – 5 km)",
+  zone_2: "Zone 2 (5 – 10 km)",
+  zone_3: "Zone 3 (10 – 15 km)",
+  zone_4: "Zone 4 (20 – 35 km)",
+  zone_5: "Zone 5 (Wien 19, 20, 21, 22)",
+  zone_6: "Zone 6 (Wien 01 – 18)",
+};
 
 interface ReportRequest {
   disturbance: Disturbance;
@@ -111,16 +121,17 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
   const footer = () => {
     doc.setDrawColor(...line);
     doc.setLineWidth(0.2);
-    doc.line(m, ph - 15, m + cw, ph - 15);
-    doc.setFontSize(7);
+    doc.line(m, ph - 22, m + cw, ph - 22);
+    doc.setFontSize(6.5);
     doc.setTextColor(...label);
-    doc.text("FASCHING Geb\u00e4udetechnik", m, ph - 11);
+    doc.text("Fasching Geb\u00e4udetechnik GmbH  \u2013  Josef Schleps-Stra\u00dfe 3b, A-2104 Spillern", m, ph - 17);
+    doc.text("T: +43 2266 21 440   \u2502   E: office@fasching-anlagen.at   \u2502   Internet: www.fasching-anlagen.at", m, ph - 12);
     const pg = (doc as any).internal.getCurrentPageInfo().pageNumber;
-    doc.text("Seite " + pg, m + cw, ph - 11, { align: "right" });
+    doc.text("Seite " + pg, m + cw, ph - 7, { align: "right" });
   };
 
   const needPage = (h: number) => {
-    if (y + h > ph - 20) { footer(); doc.addPage(); y = m; }
+    if (y + h > ph - 28) { footer(); doc.addPage(); y = m; }
   };
 
   const section = (t: string) => {
@@ -188,6 +199,9 @@ async function generatePDF(data: ReportRequest & { technicians: string[] }, phot
   row("Arbeitszeit", st + " \u2013 " + et + " Uhr");
   if (disturbance.pause_minutes > 0) row("Pause", disturbance.pause_minutes + " Min.");
   row("Stunden", disturbance.stunden.toFixed(2) + " h", true);
+  if (disturbance.werkzeug_zone && WERKZEUG_ZONE_LABELS[disturbance.werkzeug_zone]) {
+    row("Werkzeugwagen", WERKZEUG_ZONE_LABELS[disturbance.werkzeug_zone]);
+  }
   if (technicians.length > 0) row("Techniker", technicians.join(", "));
   y += 2;
 

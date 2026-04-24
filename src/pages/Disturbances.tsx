@@ -156,8 +156,9 @@ const Disturbances = () => {
     }
   };
 
-  const activeDisturbances = disturbances.filter(d => !d.is_verrechnet);
-  const archivedDisturbances = disturbances.filter(d => d.is_verrechnet);
+  const draftDisturbances = disturbances.filter(d => d.status === "entwurf");
+  const activeDisturbances = disturbances.filter(d => d.status !== "entwurf" && !d.is_verrechnet);
+  const archivedDisturbances = disturbances.filter(d => d.status !== "entwurf" && d.is_verrechnet);
 
   const filterList = (list: Disturbance[]) => {
     return list.filter((d) => {
@@ -177,6 +178,7 @@ const Disturbances = () => {
 
   const filteredActive = filterList(activeDisturbances);
   const filteredArchived = filterList(archivedDisturbances);
+  const filteredDrafts = filterList(draftDisturbances);
 
   if (loading) {
     return (
@@ -221,6 +223,12 @@ const Disturbances = () => {
               Archiv
               {archivedDisturbances.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{archivedDisturbances.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="entwuerfe" className="gap-2">
+              Entwürfe
+              {draftDisturbances.length > 0 && (
+                <Badge variant="outline" className="ml-1 h-5 px-1.5 text-xs border-amber-500 text-amber-700 dark:text-amber-400">{draftDisturbances.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -411,6 +419,64 @@ const Disturbances = () => {
                           </div>
                           <p className="text-sm line-clamp-2">{disturbance.beschreibung}</p>
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="entwuerfe" className="mt-0">
+            {filteredDrafts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Keine Entwürfe</h3>
+                  <p className="text-muted-foreground">
+                    Angefangene, aber nicht gesendete Arbeitsberichte landen hier automatisch.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {filteredDrafts.map((disturbance) => (
+                  <Card
+                    key={disturbance.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow border-amber-500/40 bg-amber-50/30 dark:bg-amber-900/10"
+                    onClick={() => { setEditingDisturbance(disturbance); setShowForm(true); }}
+                  >
+                    <CardContent className="pt-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-semibold flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              {disturbance.kunde_name || "(Unbenannt)"}
+                            </h3>
+                            {disturbance.project_name && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <FolderOpen className="h-3 w-3" /> {disturbance.project_name}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400">Entwurf</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(disturbance.datum), "dd.MM.yyyy", { locale: de })}
+                          </span>
+                          {disturbance.kunde_adresse && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {disturbance.kunde_adresse}
+                            </span>
+                          )}
+                        </div>
+                        {disturbance.beschreibung && (
+                          <p className="text-sm line-clamp-2">{disturbance.beschreibung}</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

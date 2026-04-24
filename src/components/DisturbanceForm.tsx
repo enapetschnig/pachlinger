@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { MultiEmployeeSelect } from "@/components/MultiEmployeeSelect";
 import { blockSpansBreakfast, blockSpansLunch, BREAKFAST_BREAK_START, BREAKFAST_BREAK_END, LUNCH_BREAK_START, LUNCH_BREAK_END, LUNCH_BREAK_MINUTES } from "@/lib/workingHours";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { WERKZEUG_ZONES } from "@/lib/werkzeugZones";
 
 type MaterialEntry = {
   id: string;
@@ -43,6 +44,9 @@ type DisturbanceFormProps = {
     beschreibung: string;
     notizen: string | null;
     project_id?: string | null;
+    status?: string;
+    material_text?: string | null;
+    werkzeug_zone?: string | null;
   } | null;
 };
 
@@ -65,9 +69,13 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     endTime: "10:00",
     kundeName: "",
     kundeAdresse: "",
+    kundeEmail: "",
+    kundeTelefon: "",
     beschreibung: "",
     materialText: "",
+    werkzeugZone: "",
   });
+  const draftIdRef = useRef<string | null>(null);
 
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [materials, setMaterials] = useState<MaterialEntry[]>([]);
@@ -122,8 +130,10 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     if (data) {
       setFormData(prev => ({
         ...prev,
-        kundeName: data.kunde_name || prev.kundeName,
+        kundeName: (data as any).kunde_name || prev.kundeName,
         kundeAdresse: data.adresse || prev.kundeAdresse,
+        kundeEmail: (data as any).kunde_email || prev.kundeEmail,
+        kundeTelefon: (data as any).kunde_telefon || prev.kundeTelefon,
       }));
     }
   };
@@ -136,13 +146,16 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         endTime: editData.end_time.slice(0, 5),
         kundeName: editData.kunde_name,
         kundeAdresse: editData.kunde_adresse || "",
+        kundeEmail: (editData as any).kunde_email || "",
+        kundeTelefon: (editData as any).kunde_telefon || "",
         beschreibung: editData.beschreibung,
         materialText: (editData as any).material_text || "",
+        werkzeugZone: (editData as any).werkzeug_zone || "",
       });
       setSelectedProjectId(editData.project_id || null);
       setWorkType(editData.project_id ? "projekt" : "kunde");
+      draftIdRef.current = (editData as any).status === "entwurf" ? editData.id : null;
       loadExistingWorkers(editData.id);
-      // Nur laden, falls noch kein material_text gesetzt ist (Rückwärtskompatibilität)
       if (!(editData as any).material_text) loadExistingMaterials(editData.id);
     } else {
       setFormData({
@@ -151,8 +164,11 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         endTime: "10:00",
         kundeName: "",
         kundeAdresse: "",
+        kundeEmail: "",
+        kundeTelefon: "",
         beschreibung: "",
         materialText: "",
+        werkzeugZone: "",
       });
       setSelectedEmployees([]);
       setMaterials([]);
@@ -161,6 +177,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       setHasBreakfastBreak(false);
       setHasLunchBreak(false);
       setPendingPhotos([]);
+      draftIdRef.current = null;
     }
   }, [editData, open]);
 
@@ -270,6 +287,74 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
     setMaterials(materials.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
 
+  const hasAnyContent = () => {
+    return !!(
+      formData.kundeName.trim() ||
+      formData.kundeAdresse.trim() ||
+      formData.kundeEmail.trim() ||
+      formData.kundeTelefon.trim() ||
+      formData.beschreibung.trim() ||
+      formData.materialText.trim() ||
+      formData.werkzeugZone ||
+      selectedProjectId ||
+      selectedEmployees.length > 0 ||
+      pendingPhotos.length > 0
+    );
+  };
+
+  const saveAsDraft = async () => {
+    if (!userId || saving) return;
+    if (editData && (editData as any).status !== "entwurf") return; // keinen Live-Bericht zu Entwurf machen
+    if (!hasAnyContent()) return;
+
+    const draftPayload: any = {
+      user_id: userId,
+      datum: formData.datum,
+      start_time: formData.startTime,
+      end_time: formData.endTime,
+      pause_minutes: getPauseMinutes(),
+      stunden: Math.max(0, calculateHours()),
+      kunde_name: formData.kundeName.trim() || "(Entwurf)",
+      kunde_email: formData.kundeEmail.trim() || null,
+      kunde_adresse: formData.kundeAdresse.trim() || null,
+      kunde_telefon: formData.kundeTelefon.trim() || null,
+      beschreibung: formData.beschreibung.trim() || "",
+      material_text: formData.materialText.trim() || null,
+      werkzeug_zone: formData.werkzeugZone || null,
+      project_id: selectedProjectId || null,
+      has_breakfast_break: hasBreakfastBreak,
+      has_lunch_break: hasLunchBreak,
+      status: "entwurf",
+    };
+
+    try {
+      if (draftIdRef.current) {
+        await supabase.from("disturbances").update(draftPayload).eq("id", draftIdRef.current);
+      } else if (editData) {
+        await supabase.from("disturbances").update(draftPayload).eq("id", editData.id);
+        draftIdRef.current = editData.id;
+      } else {
+        const { data } = await supabase.from("disturbances").insert(draftPayload).select("id").single();
+        if (data) draftIdRef.current = data.id;
+      }
+      toast({ title: "Als Entwurf gespeichert", description: "Du kannst den Arbeitsbericht später weiterbearbeiten." });
+    } catch (err) {
+      console.error("Draft save failed:", err);
+    }
+  };
+
+  const handleCloseDialog = async (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    // Schließen: wenn Daten drin stehen und wir nicht gerade speichern → als Entwurf sichern
+    if (!saving) {
+      await saveAsDraft();
+    }
+    onOpenChange(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitLock.current) return;
@@ -324,21 +409,29 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
       pause_minutes: getPauseMinutes(),
       stunden,
       kunde_name: formData.kundeName.trim(),
-      kunde_email: null as string | null,
+      kunde_email: formData.kundeEmail.trim() || null,
       kunde_adresse: formData.kundeAdresse.trim() || null,
-      kunde_telefon: null as string | null,
+      kunde_telefon: formData.kundeTelefon.trim() || null,
       beschreibung: formData.beschreibung.trim(),
       material_text: formData.materialText.trim() || null,
+      werkzeug_zone: formData.werkzeugZone || null,
       notizen: null as string | null,
       project_id: selectedProjectId || null,
       has_breakfast_break: hasBreakfastBreak,
       has_lunch_break: hasLunchBreak,
+      status: "offen",
     };
 
     if (editData) {
+      // Beim Update: Status nur auf "offen" setzen, wenn vorher Entwurf.
+      // Sonst bestehenden Status (offen/gesendet/abgeschlossen) NICHT überschreiben.
+      const updatePayload: any = { ...disturbanceData };
+      if ((editData as any).status !== "entwurf") {
+        delete updatePayload.status;
+      }
       const { error } = await supabase
         .from("disturbances")
-        .update(disturbanceData)
+        .update(updatePayload)
         .eq("id", editData.id);
 
       if (error) {
@@ -361,18 +454,40 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
 
       toast({ title: "Erfolg", description: "Arbeitsbericht wurde aktualisiert" });
     } else {
-      const { data: newDisturbance, error } = await supabase
-        .from("disturbances")
-        .insert(disturbanceData)
-        .select()
-        .single();
+      // Wenn bereits ein Entwurf existiert (draftIdRef), diesen updaten statt neu einzufügen
+      let newDisturbance: any;
+      let error: any;
+      if (draftIdRef.current) {
+        const res = await supabase
+          .from("disturbances")
+          .update(disturbanceData)
+          .eq("id", draftIdRef.current)
+          .select()
+          .single();
+        newDisturbance = res.data;
+        error = res.error;
+        // Alte worker-Einträge wegräumen, werden gleich neu geschrieben
+        if (newDisturbance) {
+          await supabase.from("disturbance_workers").delete().eq("disturbance_id", newDisturbance.id);
+        }
+      } else {
+        const res = await supabase
+          .from("disturbances")
+          .insert(disturbanceData)
+          .select()
+          .single();
+        newDisturbance = res.data;
+        error = res.error;
+      }
 
-      if (error) {
+      if (error || !newDisturbance) {
         toast({ variant: "destructive", title: "Fehler", description: "Arbeitsbericht konnte nicht erstellt werden" });
         submitLock.current = false;
         setSaving(false);
         return;
       }
+
+      draftIdRef.current = null;
 
       const workerRows = [
         { disturbance_id: newDisturbance.id, user_id: user.id, is_main: true },
@@ -558,7 +673,7 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleCloseDialog}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
@@ -721,6 +836,22 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                   <span className="font-bold text-primary">{calculateHours().toFixed(2)}</span>
                 </div>
               </div>
+              <div className="col-span-2">
+                <Label htmlFor="werkzeugZone">Werkzeugwagenpauschale</Label>
+                <Select
+                  value={formData.werkzeugZone}
+                  onValueChange={(v) => setFormData({ ...formData, werkzeugZone: v })}
+                >
+                  <SelectTrigger id="werkzeugZone">
+                    <SelectValue placeholder="Zone auswählen (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WERKZEUG_ZONES.map((z) => (
+                      <SelectItem key={z.value} value={z.value}>{z.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Pausen */}
@@ -808,6 +939,37 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
                   <LocationButton
                     onAddressFound={(address) => setFormData({ ...formData, kundeAdresse: address })}
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="kundeTelefon" className="flex items-center gap-1">
+                    <Phone className="h-4 w-4" /> Telefon (optional)
+                  </Label>
+                  <Input
+                    id="kundeTelefon"
+                    type="tel"
+                    value={formData.kundeTelefon}
+                    onChange={(e) => setFormData({ ...formData, kundeTelefon: e.target.value })}
+                    placeholder="+43 664 ..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="kundeEmail" className="flex items-center gap-1">
+                    <Mail className="h-4 w-4" /> E-Mail (optional)
+                  </Label>
+                  <Input
+                    id="kundeEmail"
+                    type="email"
+                    value={formData.kundeEmail}
+                    onChange={(e) => setFormData({ ...formData, kundeEmail: e.target.value })}
+                    placeholder="kunde@example.com"
+                  />
+                  {formData.kundeEmail.trim() && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Der Kunde erhält den Arbeitsbericht nach der Unterschrift automatisch per E-Mail.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -989,11 +1151,14 @@ export const DisturbanceForm = ({ open, onOpenChange, onSuccess, editData }: Dis
         </div>
 
         {/* Sticky Actions */}
-        <div className="flex gap-3 justify-end pt-4 border-t bg-background flex-shrink-0">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+        <div className="flex flex-wrap gap-2 justify-end pt-4 border-t bg-background flex-shrink-0">
+          <Button type="button" variant="ghost" onClick={() => handleCloseDialog(false)}>
+            Schließen
           </Button>
-          <Button onClick={(e) => { 
+          <Button type="button" variant="outline" onClick={saveAsDraft} disabled={saving}>
+            Als Entwurf speichern
+          </Button>
+          <Button onClick={(e) => {
             e.preventDefault();
             const form = document.querySelector('form');
             if (form) form.requestSubmit();
