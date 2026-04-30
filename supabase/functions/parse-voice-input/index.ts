@@ -17,19 +17,64 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { transcript, context } = await req.json();
-
-    if (!transcript || typeof transcript !== "string") {
-      return new Response(
-        JSON.stringify({ success: false, error: "Kein Transkript erhalten" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
+    const body = await req.json();
+    const { context } = body;
+    let transcript: string | undefined = body.transcript;
+    const audioBase64: string | undefined = body.audio;
+    const audioMimeType: string = body.audioMimeType || "audio/webm";
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: "OpenAI API Key nicht konfiguriert" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // 1. Audio-Pfad: Whisper-Transkription, falls Audio gesendet wurde
+    if (audioBase64 && !transcript) {
+      try {
+        const audioBytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
+        const ext = audioMimeType.includes("mp4") || audioMimeType.includes("m4a") ? "m4a"
+          : audioMimeType.includes("ogg") ? "ogg"
+          : audioMimeType.includes("wav") ? "wav"
+          : "webm";
+        const audioBlob = new Blob([audioBytes], { type: audioMimeType });
+        const formData = new FormData();
+        formData.append("file", audioBlob, `audio.${ext}`);
+        formData.append("model", "whisper-1");
+        formData.append("language", "de");
+        formData.append("response_format", "json");
+
+        const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: formData,
+        });
+
+        if (!whisperRes.ok) {
+          const errText = await whisperRes.text();
+          console.error("Whisper error:", whisperRes.status, errText);
+          return new Response(
+            JSON.stringify({ success: false, error: `Whisper-Transkription fehlgeschlagen: ${whisperRes.status}` }),
+            { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        const whisperData = await whisperRes.json();
+        transcript = (whisperData.text || "").trim();
+      } catch (audioErr) {
+        console.error("Audio decode error:", audioErr);
+        return new Response(
+          JSON.stringify({ success: false, error: "Audio konnte nicht verarbeitet werden" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
+
+    if (!transcript || typeof transcript !== "string") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Kein Transkript erhalten" }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }

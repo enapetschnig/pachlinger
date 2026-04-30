@@ -1,8 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,110 +15,122 @@ interface VoiceRecorderProps {
   onResult: (data: ParsedVoiceData) => void;
   disabled?: boolean;
   compact?: boolean;
-  /** Context for the AI prompt. "arbeiten" = report style, "material" = list of materials */
   context?: "arbeiten" | "material";
-  /** Custom label for the non-compact button */
   label?: string;
 }
 
-// Check browser support
-const isSpeechRecognitionSupported = () => {
-  return !!(
-    (window as any).SpeechRecognition ||
-    (window as any).webkitSpeechRecognition
-  );
+const pickMimeType = (): string => {
+  if (typeof MediaRecorder === "undefined") return "audio/webm";
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+  for (const c of candidates) {
+    if ((MediaRecorder as any).isTypeSupported?.(c)) return c;
+  }
+  return "audio/webm";
 };
+
+const blobToBase64 = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const idx = result.indexOf(",");
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error("FileReader error"));
+    reader.readAsDataURL(blob);
+  });
 
 export function VoiceRecorder({ onResult, disabled, compact, context, label }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
-  const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const mimeRef = useRef<string>("audio/webm");
 
-  // Cleanup bei Unmount
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (_) {}
-      }
+      try { recorderRef.current?.stop(); } catch (_) {}
+      streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  const startRecording = useCallback(() => {
-    if (!isSpeechRecognitionSupported()) {
-      setError("Spracherkennung wird von diesem Browser nicht unterstützt. Bitte verwende Chrome oder Edge.");
-      return;
-    }
-
+  const startRecording = async () => {
     setError(null);
     setSuccess(false);
-    setTranscript("");
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-
-    recognition.lang = "de-DE";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    let finalTranscript = "";
-
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript + " ";
-        } else {
-          interim += result[0].transcript;
-        }
-      }
-      setTranscript(finalTranscript + interim);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      if (event.error === "not-allowed") {
-        setError("Mikrofonzugriff verweigert. Bitte erlaube den Zugriff in den Browser-Einstellungen.");
-      } else if (event.error !== "aborted") {
-        setError(`Spracherkennungsfehler: ${event.error}`);
-      }
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-      if (finalTranscript.trim()) {
-        setTranscript(finalTranscript.trim());
-        parseTranscript(finalTranscript.trim());
-      } else {
-        setError("Keine Sprache erkannt. Bitte sprechen Sie deutlich und versuchen Sie es erneut.");
-      }
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
-  }, []);
-
-  const stopRecording = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (typeof MediaRecorder === "undefined") {
+      setError("Aufnahme nicht unterstützt. Bitte Browser aktualisieren.");
+      return;
     }
-  }, []);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = pickMimeType();
+      mimeRef.current = mime;
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      recorderRef.current = recorder;
+      chunksRef.current = [];
 
-  const parseTranscript = async (text: string) => {
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        const blob = new Blob(chunksRef.current, { type: mimeRef.current });
+        chunksRef.current = [];
+        if (blob.size < 1000) {
+          setError("Aufnahme zu kurz. Bitte erneut versuchen.");
+          return;
+        }
+        await sendAudio(blob);
+      };
+      recorder.onerror = (e: any) => {
+        console.error("Recorder error:", e?.error || e);
+        setError("Aufnahme-Fehler. Bitte erneut versuchen.");
+        setIsRecording(false);
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (err: any) {
+      console.error("getUserMedia failed:", err);
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        setError("Mikrofonzugriff verweigert. Bitte in den Browser-Einstellungen erlauben.");
+      } else if (err?.name === "NotFoundError") {
+        setError("Kein Mikrofon gefunden.");
+      } else {
+        setError("Aufnahme konnte nicht gestartet werden.");
+      }
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      try { recorderRef.current.stop(); } catch (_) {}
+    }
+    setIsRecording(false);
+  };
+
+  const sendAudio = async (blob: Blob) => {
     setIsParsing(true);
     setError(null);
-
     try {
+      const audioBase64 = await blobToBase64(blob);
       const { data: { session } } = await supabase.auth.getSession();
       const { data, error: fnError } = await supabase.functions.invoke("parse-voice-input", {
-        body: { transcript: text, context: context || "arbeiten" },
+        body: {
+          audio: audioBase64,
+          audioMimeType: blob.type || "audio/webm",
+          context: context || "arbeiten",
+        },
         headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
 
@@ -134,25 +144,14 @@ export function VoiceRecorder({ onResult, disabled, compact, context, label }: V
         setError(data?.error || "KI konnte die Eingabe nicht verarbeiten");
       }
     } catch (err: any) {
-      console.error("Parse error:", err);
-      setError(err.message || "Fehler bei der KI-Verarbeitung");
+      console.error("sendAudio error:", err);
+      setError(err?.message || "Fehler bei der Verarbeitung");
     } finally {
       setIsParsing(false);
     }
   };
 
-  if (!isSpeechRecognitionSupported()) {
-    if (compact) return null;
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
-        <AlertCircle className="w-4 h-4" />
-        <span>Spracherkennung nicht verfügbar. Bitte Chrome oder Edge verwenden.</span>
-      </div>
-    );
-  }
-
   if (compact) {
-    const iconCls = "h-4 w-4";
     return (
       <div className="inline-flex items-center gap-2">
         {isRecording ? (
@@ -164,12 +163,12 @@ export function VoiceRecorder({ onResult, disabled, compact, context, label }: V
             disabled={disabled}
             className="gap-1.5 h-8"
           >
-            <MicOff className={iconCls} />
+            <MicOff className="h-4 w-4" />
             Stopp
           </Button>
         ) : isParsing ? (
           <Button type="button" variant="outline" size="sm" disabled className="gap-1.5 h-8">
-            <Loader2 className={cn(iconCls, "animate-spin")} />
+            <Loader2 className="h-4 w-4 animate-spin" />
             KI
           </Button>
         ) : (
@@ -182,7 +181,7 @@ export function VoiceRecorder({ onResult, disabled, compact, context, label }: V
             className="gap-1.5 h-8"
             title="Spracheingabe starten"
           >
-            <Mic className={iconCls} />
+            <Mic className="h-4 w-4" />
             Diktieren
           </Button>
         )}
@@ -205,7 +204,7 @@ export function VoiceRecorder({ onResult, disabled, compact, context, label }: V
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {isRecording ? (
           <Button
             type="button"
@@ -221,7 +220,7 @@ export function VoiceRecorder({ onResult, disabled, compact, context, label }: V
         ) : isParsing ? (
           <Button type="button" variant="outline" size="sm" disabled className="gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
-            KI verarbeitet...
+            Wird verarbeitet…
           </Button>
         ) : (
           <Button
@@ -233,37 +232,24 @@ export function VoiceRecorder({ onResult, disabled, compact, context, label }: V
             className="gap-2"
           >
             <Mic className="w-4 h-4" />
-            Spracheingabe
+            {label || "Spracheingabe starten"}
           </Button>
         )}
-
         {isRecording && (
-          <Badge variant="destructive" className="animate-pulse gap-1">
-            <span className="w-2 h-2 bg-white rounded-full" />
-            Aufnahme läuft...
-          </Badge>
+          <span className="flex items-center gap-1 text-xs text-destructive">
+            <span className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+            Aufnahme läuft… Stopp drücken wenn fertig
+          </span>
         )}
-
         {success && (
-          <Badge variant="default" className="bg-green-600 gap-1">
-            <Check className="w-3 h-3" />
+          <span className="flex items-center gap-1 text-xs text-green-600">
+            <Check className="w-4 h-4" />
             Eingetragen
-          </Badge>
+          </span>
         )}
       </div>
-
-      {/* Live-Transkript */}
-      {(isRecording || transcript) && !success && (
-        <Card className="bg-muted/30">
-          <CardContent className="p-3">
-            <p className="text-sm text-muted-foreground mb-1">Transkript:</p>
-            <p className="text-sm">{transcript || "Sprechen Sie jetzt..."}</p>
-          </CardContent>
-        </Card>
-      )}
-
       {error && (
-        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-2">
+        <div className={cn("flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-2")}>
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
