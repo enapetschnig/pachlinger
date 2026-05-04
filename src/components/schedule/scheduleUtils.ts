@@ -77,6 +77,16 @@ export function getAssignmentForDay(
   );
 }
 
+export function getAssignmentsForDay(
+  assignments: Assignment[],
+  userId: string,
+  date: Date
+): Assignment[] {
+  return assignments
+    .filter((a) => a.user_id === userId && isSameDay(parseISO(a.datum), date))
+    .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
+}
+
 export function isOnLeave(
   leaveRequests: LeaveRequest[],
   userId: string,

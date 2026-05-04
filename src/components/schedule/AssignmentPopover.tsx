@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Trash2, Clock } from "lucide-react";
+import { Trash2, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -30,8 +31,18 @@ interface Props {
   days?: Date[];
   assignment: Assignment | null;
   projects: Project[];
-  onAssign: (userId: string, date: Date, projectId: string, notizen?: string, startTime?: string, endTime?: string) => void;
-  onRemove: (userId: string, date: Date) => void;
+  profiles?: Profile[];
+  onAssign: (
+    userId: string,
+    date: Date,
+    projectId: string,
+    notizen?: string,
+    startTime?: string,
+    endTime?: string,
+    assignmentId?: string,
+    additionalUserIds?: string[]
+  ) => void;
+  onRemove: (userId: string, date: Date, assignmentId?: string) => void;
 }
 
 export function AssignmentPopover({
@@ -42,6 +53,7 @@ export function AssignmentPopover({
   days,
   assignment,
   projects,
+  profiles = [],
   onAssign,
   onRemove,
 }: Props) {
@@ -49,29 +61,66 @@ export function AssignmentPopover({
   const [notizen, setNotizen] = useState(assignment?.notizen || "");
   const [startTime, setStartTime] = useState(assignment?.start_time || "07:00");
   const [endTime, setEndTime] = useState(assignment?.end_time || "16:00");
+  const [additionalUserIds, setAdditionalUserIds] = useState<string[]>([]);
 
   const isRangeMode = days && days.length > 1;
+  const isEditMode = !!assignment;
 
   useEffect(() => {
     setSelectedProject(assignment?.project_id || "");
     setNotizen(assignment?.notizen || "");
     setStartTime(assignment?.start_time || "07:00");
     setEndTime(assignment?.end_time || "17:07:30");
+    setAdditionalUserIds([]);
   }, [assignment, open]);
 
   if (!profile || !date) return null;
 
+  const toggleAdditional = (uid: string) => {
+    setAdditionalUserIds((prev) =>
+      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+    );
+  };
+
   const handleSave = () => {
     if (!selectedProject) return;
-    if (isRangeMode) {
-      for (const d of days) {
-        // Freitag bis Sonntag überspringen (4-Tage-Woche MO-DO)
+    if (isEditMode) {
+      // Edit: nur den bestehenden Eintrag aktualisieren
+      onAssign(
+        profile.id,
+        date,
+        selectedProject,
+        notizen || undefined,
+        startTime,
+        endTime,
+        assignment!.id
+      );
+    } else if (isRangeMode) {
+      for (const d of days!) {
         const dow = d.getDay();
         if (dow === 0 || dow === 5 || dow === 6) continue;
-        onAssign(profile.id, d, selectedProject, notizen || undefined, startTime, endTime);
+        onAssign(
+          profile.id,
+          d,
+          selectedProject,
+          notizen || undefined,
+          startTime,
+          endTime,
+          undefined,
+          additionalUserIds
+        );
       }
     } else {
-      onAssign(profile.id, date, selectedProject, notizen || undefined, startTime, endTime);
+      onAssign(
+        profile.id,
+        date,
+        selectedProject,
+        notizen || undefined,
+        startTime,
+        endTime,
+        undefined,
+        additionalUserIds
+      );
     }
     onOpenChange(false);
   };
@@ -81,19 +130,23 @@ export function AssignmentPopover({
     const [sh, sm] = startTime.split(":").map(Number);
     const [eh, em] = endTime.split(":").map(Number);
     const mins = (eh * 60 + em) - (sh * 60 + sm);
-    const pause = mins > 360 ? 30 : 0; // 30min pause if > 6h
+    const pause = mins > 360 ? 30 : 0;
     return Math.max(0, (mins - pause) / 60).toFixed(1);
   };
 
   const dateLabel = isRangeMode
-    ? `${days.length} Tage: ${format(days[0], "EE dd.MM.", { locale: de })} – ${format(days[days.length - 1], "EE dd.MM.", { locale: de })}`
+    ? `${days!.length} Tage: ${format(days![0], "EE dd.MM.", { locale: de })} – ${format(days![days!.length - 1], "EE dd.MM.", { locale: de })}`
     : format(date, "EEEE, dd. MMMM yyyy", { locale: de });
+
+  const otherProfiles = profiles.filter((p) => p.id !== profile.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">
+            {isEditMode ? "Auftrag bearbeiten" : "Auftrag zuweisen"}
+            {" – "}
             {profile.vorname} {profile.nachname}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">{dateLabel}</p>
@@ -145,13 +198,44 @@ export function AssignmentPopover({
             className="text-sm resize-none"
           />
 
-          {assignment && !isRangeMode && (
+          {/* Multi-Mitarbeiter (nur beim Erstellen, nicht beim Bearbeiten) */}
+          {!isEditMode && otherProfiles.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Auch zuweisen an (gleicher Auftrag, gleiche Zeit)
+              </Label>
+              <div className="rounded-md border bg-muted/30 max-h-40 overflow-y-auto p-2 space-y-1.5">
+                {otherProfiles.map((p) => (
+                  <label
+                    key={p.id}
+                    htmlFor={`add-${p.id}`}
+                    className="flex items-center gap-2 cursor-pointer text-sm hover:bg-background/60 rounded px-1 py-0.5"
+                  >
+                    <Checkbox
+                      id={`add-${p.id}`}
+                      checked={additionalUserIds.includes(p.id)}
+                      onCheckedChange={() => toggleAdditional(p.id)}
+                    />
+                    <span>{p.vorname} {p.nachname}</span>
+                  </label>
+                ))}
+              </div>
+              {additionalUserIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Wird zusätzlich für {additionalUserIds.length} weitere(n) MA angelegt.
+                </p>
+              )}
+            </div>
+          )}
+
+          {isEditMode && !isRangeMode && (
             <Button
               variant="destructive"
               size="sm"
               className="w-full"
               onClick={() => {
-                onRemove(profile.id, date);
+                onRemove(profile.id, date, assignment!.id);
                 onOpenChange(false);
               }}
             >
@@ -167,7 +251,13 @@ export function AssignmentPopover({
             onClick={handleSave}
             disabled={!selectedProject}
           >
-            {isRangeMode ? `${days.length} Tage zuweisen` : "Speichern"}
+            {isEditMode
+              ? "Speichern"
+              : isRangeMode
+              ? `${days!.length} Tage zuweisen`
+              : additionalUserIds.length > 0
+              ? `Für ${additionalUserIds.length + 1} MA zuweisen`
+              : "Zuweisen"}
           </Button>
         </DialogFooter>
       </DialogContent>

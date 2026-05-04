@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Users } from "lucide-react";
 import { GanttBar } from "./GanttBar";
 import {
-  getAssignmentForDay,
+  getAssignmentsForDay,
   isOnLeave,
   isCompanyHoliday,
   getEmployeeColor,
@@ -25,6 +25,7 @@ interface Props {
   canEditProject: (projectId: string) => boolean;
   onCellClick?: (userId: string, date: Date) => void;
   onRangeSelect?: (userId: string, days: Date[]) => void;
+  onAssignmentClick?: (assignment: Assignment) => void;
 }
 
 export function TeamGanttSection({
@@ -37,6 +38,7 @@ export function TeamGanttSection({
   canEditProject,
   onCellClick,
   onRangeSelect,
+  onAssignmentClick,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const [dragUserId, setDragUserId] = useState<string | null>(null);
@@ -104,17 +106,14 @@ export function TeamGanttSection({
             {days.map((day, dayIdx) => {
               const holiday = isCompanyHoliday(holidays, day);
               const leave = isOnLeave(leaveRequests, profile.id, day);
-              const assignment = getAssignmentForDay(
+              const dayAssignments = getAssignmentsForDay(
                 assignments,
                 profile.id,
                 day
               );
-              const projectName = assignment
-                ? projectMap[assignment.project_id]
-                : null;
-              const editable = assignment
-                ? canEditProject(assignment.project_id)
-                : true;
+              // Cell-Klick darf nur, wenn kein Assignment editiert werden muss
+              // (für neue Aufträge); editable=true heißt: Empty-Cell-Click erlaubt
+              const editable = true;
 
               const isDragSelected =
                 dragUserId === profile.id &&
@@ -129,16 +128,14 @@ export function TeamGanttSection({
                   className={`p-0.5 border-r min-h-[40px] select-none ${
                     holiday ? "bg-gray-100" : ""
                   } ${
-                    !editable && !holiday && !leave
-                      ? "opacity-60"
-                      : ""
-                  } ${
                     isDragSelected && !holiday && !leave
                       ? "bg-blue-100 ring-1 ring-inset ring-blue-400"
                       : ""
                   }`}
-                  onMouseDown={() => {
-                    if (!holiday && !leave && editable && (onCellClick || onRangeSelect)) {
+                  onMouseDown={(e) => {
+                    // Wenn auf einen Bar-Eintrag geklickt → nicht den Drag starten
+                    if ((e.target as HTMLElement).closest("[data-assignment-id]")) return;
+                    if (!holiday && !leave && (onCellClick || onRangeSelect)) {
                       setDragUserId(profile.id);
                       setDragStartIdx(dayIdx);
                       setDragEndIdx(dayIdx);
@@ -168,12 +165,34 @@ export function TeamGanttSection({
                       }
                       variant="leave"
                     />
-                  ) : assignment ? (
-                    <GanttBar
-                      projectId={assignment.project_id}
-                      label={projectName || "–"}
-                      colorOverride={empColor}
-                    />
+                  ) : dayAssignments.length > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                      {dayAssignments.map((a) => {
+                        const isEditable = canEditProject(a.project_id);
+                        const projectName = projectMap[a.project_id] || "–";
+                        const timeLabel = a.start_time && a.end_time
+                          ? ` ${a.start_time.slice(0, 5)}–${a.end_time.slice(0, 5)}`
+                          : "";
+                        return (
+                          <div
+                            key={a.id}
+                            data-assignment-id={a.id}
+                            className={`${onAssignmentClick && isEditable ? "cursor-pointer" : ""} ${!isEditable ? "opacity-60" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onAssignmentClick && isEditable) onAssignmentClick(a);
+                            }}
+                            title={`${projectName}${timeLabel}${a.notizen ? ` · ${a.notizen}` : ""}`}
+                          >
+                            <GanttBar
+                              projectId={a.project_id}
+                              label={`${projectName}${timeLabel}`}
+                              colorOverride={empColor}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <div
                       className={`min-h-[32px] rounded-md border border-dashed border-muted-foreground/20 ${

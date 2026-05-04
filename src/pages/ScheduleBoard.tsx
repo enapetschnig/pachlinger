@@ -8,6 +8,7 @@ import {
   startOfISOWeek,
   addDays,
   format,
+  parseISO,
 } from "date-fns";
 
 import type {
@@ -15,7 +16,7 @@ import type {
   DailyTarget,
   ScheduleMode,
 } from "@/components/schedule/scheduleTypes";
-import { getAssignmentForDay, getProjectColorClass } from "@/components/schedule/scheduleUtils";
+import { getProjectColorClass } from "@/components/schedule/scheduleUtils";
 import { useScheduleData } from "@/components/schedule/useScheduleData";
 import { useSchedulePermissions } from "@/components/schedule/useSchedulePermissions";
 import { ScheduleHeader } from "@/components/schedule/ScheduleHeader";
@@ -71,17 +72,21 @@ export default function ScheduleBoard() {
   const [popoverUserId, setPopoverUserId] = useState<string | null>(null);
   const [popoverDate, setPopoverDate] = useState<Date | null>(null);
   const [popoverDays, setPopoverDays] = useState<Date[]>([]);
+  const [popoverAssignmentId, setPopoverAssignmentId] = useState<string | null>(null);
 
   // Day detail sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetProjectId, setSheetProjectId] = useState<string | null>(null);
   const [sheetDatum, setSheetDatum] = useState<string | null>(null);
 
+  // Plantafel ist für alle authentifizierten Mitarbeiter sichtbar (Read-Only,
+  // wenn weder Admin noch Vorarbeiter). Nur nicht-eingeloggte User werden
+  // ausgesperrt.
   useEffect(() => {
-    if (!permLoading && !isAdmin && !isVorarbeiter && !isExtern) {
-      navigate("/");
+    if (!permLoading && !userId) {
+      navigate("/auth");
     }
-  }, [permLoading, isAdmin, isVorarbeiter, isExtern, navigate]);
+  }, [permLoading, userId, navigate]);
 
   useEffect(() => {
     if (!permLoading) {
@@ -90,10 +95,20 @@ export default function ScheduleBoard() {
   }, [weekStart, mode, permLoading]);
 
   // --- Assignment handlers ---
-  const handleAssign = async (uid: string, date: Date, projectId: string, notizen?: string, startTime?: string, endTime?: string) => {
+  // Erzeugt oder aktualisiert eine Zuweisung. Wenn assignmentId angegeben ist
+  // -> UPDATE; sonst -> INSERT (mehrere Einträge pro Tag/MA möglich).
+  // additionalUserIds: dieselbe Zuweisung wird auch für diese MAs angelegt.
+  const handleAssign = async (
+    uid: string,
+    date: Date,
+    projectId: string,
+    notizen?: string,
+    startTime?: string,
+    endTime?: string,
+    assignmentId?: string,
+    additionalUserIds: string[] = []
+  ) => {
     const datum = format(date, "yyyy-MM-dd");
-    const existing = getAssignmentForDay(assignments, uid, date);
-
     const payload = {
       project_id: projectId,
       notizen: notizen ?? null,
@@ -101,58 +116,56 @@ export default function ScheduleBoard() {
       end_time: endTime || "16:00",
     };
 
-    let assignmentId: string | null = null;
-
-    if (existing) {
-      const { error } = await supabase
+    if (assignmentId) {
+      const { error } = await (supabase as any)
         .from("worker_assignments")
         .update(payload)
-        .eq("id", existing.id);
+        .eq("id", assignmentId);
       if (error) {
         toast({ variant: "destructive", title: "Fehler", description: error.message });
         return;
       }
-      assignmentId = existing.id;
       setAssignments((prev) =>
-        prev.map((a) =>
-          a.id === existing.id ? { ...a, ...payload } : a
-        )
+        prev.map((a) => (a.id === assignmentId ? { ...a, ...payload } : a))
       );
-    } else {
-      const { data, error } = await supabase
-        .from("worker_assignments")
-        .upsert(
-          { user_id: uid, datum, created_by: userId, ...payload },
-          { onConflict: "user_id,project_id,datum,start_time" }
-        )
-        .select()
-        .single();
-      if (error) {
-        toast({ variant: "destructive", title: "Fehler", description: error.message });
-        return;
-      }
-      if (data) {
-        assignmentId = data.id;
-        setAssignments((prev) => [...prev, data as Assignment]);
-      }
+      return;
     }
 
+    const userIds = [uid, ...additionalUserIds.filter((u) => u && u !== uid)];
+    const rows = userIds.map((u) => ({ user_id: u, datum, created_by: userId, ...payload }));
+    const { data, error } = await (supabase as any)
+      .from("worker_assignments")
+      .insert(rows)
+      .select();
+
+    if (error) {
+      // Bei Konflikt (gleicher User+Projekt+Datum+StartTime) Hinweis ausgeben
+      const isConflict = String(error.code) === "23505" || /unique/i.test(error.message || "");
+      toast({
+        variant: "destructive",
+        title: isConflict ? "Bereits zugewiesen" : "Fehler",
+        description: isConflict
+          ? "Diese Kombination aus Mitarbeiter, Projekt, Tag und Startzeit existiert bereits."
+          : error.message,
+      });
+      return;
+    }
+    if (data) {
+      setAssignments((prev) => [...prev, ...(data as Assignment[])]);
+    }
   };
 
-  const handleRemove = async (uid: string, date: Date) => {
-    const existing = getAssignmentForDay(assignments, uid, date);
-    if (!existing) return;
-
-
-    const { error } = await supabase
+  const handleRemove = async (_uid: string, _date: Date, assignmentId?: string) => {
+    if (!assignmentId) return;
+    const { error } = await (supabase as any)
       .from("worker_assignments")
       .delete()
-      .eq("id", existing.id);
+      .eq("id", assignmentId);
     if (error) {
       toast({ variant: "destructive", title: "Fehler", description: error.message });
       return;
     }
-    setAssignments((prev) => prev.filter((a) => a.id !== existing.id));
+    setAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
   };
 
   // --- Daily target handlers ---
@@ -307,6 +320,15 @@ export default function ScheduleBoard() {
     setPopoverUserId(cellUserId);
     setPopoverDate(date);
     setPopoverDays([]);
+    setPopoverAssignmentId(null);
+    setPopoverOpen(true);
+  };
+
+  const handleAssignmentClick = (assignment: Assignment) => {
+    setPopoverUserId(assignment.user_id);
+    setPopoverDate(parseISO(assignment.datum));
+    setPopoverDays([]);
+    setPopoverAssignmentId(assignment.id);
     setPopoverOpen(true);
   };
 
@@ -314,6 +336,7 @@ export default function ScheduleBoard() {
     setPopoverUserId(uid);
     setPopoverDate(selectedDays[0]);
     setPopoverDays(selectedDays);
+    setPopoverAssignmentId(null);
     setPopoverOpen(true);
   };
 
@@ -326,10 +349,9 @@ export default function ScheduleBoard() {
   };
 
   const popoverProfile = profiles.find((p) => p.id === popoverUserId) || null;
-  const popoverAssignment =
-    popoverUserId && popoverDate
-      ? getAssignmentForDay(assignments, popoverUserId, popoverDate)
-      : null;
+  const popoverAssignment = popoverAssignmentId
+    ? assignments.find((a) => a.id === popoverAssignmentId) || null
+    : null;
 
   const sheetProject = projects.find((p) => p.id === sheetProjectId) || null;
   const sheetTarget = sheetProjectId && sheetDatum
@@ -432,6 +454,9 @@ export default function ScheduleBoard() {
                 onRangeSelect={
                   isAdmin || isVorarbeiter ? handleRangeSelect : undefined
                 }
+                onAssignmentClick={
+                  isAdmin || isVorarbeiter ? handleAssignmentClick : undefined
+                }
               />
             </div>
           </>
@@ -455,11 +480,9 @@ export default function ScheduleBoard() {
         days={popoverDays.length > 1 ? popoverDays : undefined}
         assignment={popoverAssignment || null}
         projects={projects}
-        onAssign={async (uid, date, projectId, notizen) => {
-          const daysToAssign = popoverDays.length > 1 ? popoverDays : [date];
-          for (const d of daysToAssign) {
-            await handleAssign(uid, d, projectId, notizen);
-          }
+        profiles={profiles}
+        onAssign={async (uid, date, projectId, notizen, startTime, endTime, assignmentId, additionalUserIds) => {
+          await handleAssign(uid, date, projectId, notizen, startTime, endTime, assignmentId, additionalUserIds);
         }}
         onRemove={handleRemove}
       />
