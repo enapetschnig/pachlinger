@@ -10,768 +10,155 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
-      app_settings: {
+      lieferschein_positionen: {
         Row: {
-          key: string
+          bezeichnung: string
+          created_at: string
+          einheit: string
+          id: string
+          lieferschein_id: string
+          menge: number
+          pos_nr: number
+          rabatt_eur: number | null
+        }
+        Insert: {
+          bezeichnung: string
+          created_at?: string
+          einheit?: string
+          id?: string
+          lieferschein_id: string
+          menge?: number
+          pos_nr: number
+          rabatt_eur?: number | null
+        }
+        Update: {
+          bezeichnung?: string
+          created_at?: string
+          einheit?: string
+          id?: string
+          lieferschein_id?: string
+          menge?: number
+          pos_nr?: number
+          rabatt_eur?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lieferschein_positionen_lieferschein_id_fkey"
+            columns: ["lieferschein_id"]
+            isOneToOne: false
+            referencedRelation: "lieferscheine"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lieferscheine: {
+        Row: {
+          angebot_datum: string | null
+          angebot_nr: string | null
+          bauseits: string[]
+          betreff: string | null
+          created_at: string
+          empfaenger_name: string
+          empfaenger_ort: string | null
+          empfaenger_plz: string | null
+          empfaenger_strasse: string | null
+          empfaenger_uid: string | null
+          id: string
+          jahr: number
+          kunden_nummer: string | null
+          leistung: string | null
+          lfd_nr: number
+          lieferschein_datum: string
+          nummer: string | null
+          status: Database["public"]["Enums"]["lieferschein_status"]
+          unterschrift_datum: string | null
+          unterschrift_image_url: string | null
+          unterschrift_ort: string | null
           updated_at: string
-          value: string
-        }
-        Insert: {
-          key: string
-          updated_at?: string
-          value: string
-        }
-        Update: {
-          key?: string
-          updated_at?: string
-          value?: string
-        }
-        Relationships: []
-      }
-      disturbance_materials: {
-        Row: {
-          created_at: string
-          disturbance_id: string
-          id: string
-          material: string
-          menge: string | null
-          notizen: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          disturbance_id: string
-          id?: string
-          material: string
-          menge?: string | null
-          notizen?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          disturbance_id?: string
-          id?: string
-          material?: string
-          menge?: string | null
-          notizen?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "disturbance_materials_disturbance_id_fkey"
-            columns: ["disturbance_id"]
-            isOneToOne: false
-            referencedRelation: "disturbances"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      disturbance_photos: {
-        Row: {
-          created_at: string
-          disturbance_id: string
-          file_name: string
-          file_path: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          disturbance_id: string
-          file_name: string
-          file_path: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          disturbance_id?: string
-          file_name?: string
-          file_path?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "disturbance_photos_disturbance_id_fkey"
-            columns: ["disturbance_id"]
-            isOneToOne: false
-            referencedRelation: "disturbances"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      disturbance_workers: {
-        Row: {
-          created_at: string
-          disturbance_id: string
-          id: string
-          is_main: boolean
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          disturbance_id: string
-          id?: string
-          is_main?: boolean
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          disturbance_id?: string
-          id?: string
-          is_main?: boolean
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "disturbance_workers_disturbance_id_fkey"
-            columns: ["disturbance_id"]
-            isOneToOne: false
-            referencedRelation: "disturbances"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      disturbances: {
-        Row: {
-          beschreibung: string
-          created_at: string
-          datum: string
-          end_time: string
-          has_breakfast_break: boolean
-          has_lunch_break: boolean
-          id: string
-          is_verrechnet: boolean
-          kunde_adresse: string | null
-          kunde_email: string | null
-          kunde_name: string
-          kunde_telefon: string | null
-          notizen: string | null
-          pause_minutes: number
-          pdf_gesendet_am: string | null
-          project_id: string | null
-          start_time: string
-          status: string
-          stunden: number
-          unterschrift_am: string | null
-          unterschrift_kunde: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          beschreibung: string
-          created_at?: string
-          datum: string
-          end_time: string
-          has_breakfast_break?: boolean
-          has_lunch_break?: boolean
-          id?: string
-          is_verrechnet?: boolean
-          kunde_adresse?: string | null
-          kunde_email?: string | null
-          kunde_name: string
-          kunde_telefon?: string | null
-          notizen?: string | null
-          pause_minutes?: number
-          pdf_gesendet_am?: string | null
-          project_id?: string | null
-          start_time: string
-          status?: string
-          stunden: number
-          unterschrift_am?: string | null
-          unterschrift_kunde?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          beschreibung?: string
-          created_at?: string
-          datum?: string
-          end_time?: string
-          has_breakfast_break?: boolean
-          has_lunch_break?: boolean
-          id?: string
-          is_verrechnet?: boolean
-          kunde_adresse?: string | null
-          kunde_email?: string | null
-          kunde_name?: string
-          kunde_telefon?: string | null
-          notizen?: string | null
-          pause_minutes?: number
-          pdf_gesendet_am?: string | null
-          project_id?: string | null
-          start_time?: string
-          status?: string
-          stunden?: number
-          unterschrift_am?: string | null
-          unterschrift_kunde?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      documents: {
-        Row: {
-          beschreibung: string | null
-          created_at: string
-          file_url: string
-          id: string
-          name: string
-          project_id: string
-          typ: string
-          user_id: string
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string
-          file_url: string
-          id?: string
-          name: string
-          project_id: string
-          typ: string
-          user_id: string
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string
-          file_url?: string
-          id?: string
-          name?: string
-          project_id?: string
-          typ?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "documents_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employees: {
-        Row: {
-          adresse: string | null
-          austritt_datum: string | null
-          bank_name: string | null
-          beschaeftigung_art: string | null
-          bic: string | null
-          created_at: string | null
-          eintritt_datum: string | null
-          email: string | null
-          geburtsdatum: string | null
-          iban: string | null
-          id: string
-          kleidungsgroesse: string | null
-          land: string | null
-          nachname: string
-          notizen: string | null
-          ort: string | null
-          plz: string | null
-          position: string | null
-          schuhgroesse: string | null
-          stundenlohn: number | null
-          sv_nummer: string | null
-          telefon: string | null
-          updated_at: string | null
           user_id: string | null
-          vacation_credit_month: number | null
-          vacation_days_per_year: number | null
-          vorname: string
         }
         Insert: {
-          adresse?: string | null
-          austritt_datum?: string | null
-          bank_name?: string | null
-          beschaeftigung_art?: string | null
-          bic?: string | null
-          created_at?: string | null
-          eintritt_datum?: string | null
-          email?: string | null
-          geburtsdatum?: string | null
-          iban?: string | null
-          id?: string
-          kleidungsgroesse?: string | null
-          land?: string | null
-          nachname: string
-          notizen?: string | null
-          ort?: string | null
-          plz?: string | null
-          position?: string | null
-          schuhgroesse?: string | null
-          stundenlohn?: number | null
-          sv_nummer?: string | null
-          telefon?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          vacation_credit_month?: number | null
-          vacation_days_per_year?: number | null
-          vorname: string
-        }
-        Update: {
-          adresse?: string | null
-          austritt_datum?: string | null
-          bank_name?: string | null
-          beschaeftigung_art?: string | null
-          bic?: string | null
-          created_at?: string | null
-          eintritt_datum?: string | null
-          email?: string | null
-          geburtsdatum?: string | null
-          iban?: string | null
-          id?: string
-          kleidungsgroesse?: string | null
-          land?: string | null
-          nachname?: string
-          notizen?: string | null
-          ort?: string | null
-          plz?: string | null
-          position?: string | null
-          schuhgroesse?: string | null
-          stundenlohn?: number | null
-          sv_nummer?: string | null
-          telefon?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          vorname?: string
-        }
-        Relationships: []
-      }
-      invitation_logs: {
-        Row: {
-          email: string | null
-          gesendet_am: string | null
-          gesendet_von: string | null
-          id: string
-          status: string | null
-          telefonnummer: string
-        }
-        Insert: {
-          email?: string | null
-          gesendet_am?: string | null
-          gesendet_von?: string | null
-          id?: string
-          status?: string | null
-          telefonnummer: string
-        }
-        Update: {
-          email?: string | null
-          gesendet_am?: string | null
-          gesendet_von?: string | null
-          id?: string
-          status?: string | null
-          telefonnummer?: string
-        }
-        Relationships: []
-      }
-      material_entries: {
-        Row: {
-          created_at: string
-          id: string
-          material: string
-          menge: string | null
-          notizen: string | null
-          project_id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
+          angebot_datum?: string | null
+          angebot_nr?: string | null
+          bauseits?: string[]
+          betreff?: string | null
           created_at?: string
+          empfaenger_name: string
+          empfaenger_ort?: string | null
+          empfaenger_plz?: string | null
+          empfaenger_strasse?: string | null
+          empfaenger_uid?: string | null
           id?: string
-          material: string
-          menge?: string | null
-          notizen?: string | null
-          project_id: string
+          jahr?: number
+          kunden_nummer?: string | null
+          leistung?: string | null
+          lfd_nr?: number
+          lieferschein_datum?: string
+          nummer?: string | null
+          status?: Database["public"]["Enums"]["lieferschein_status"]
+          unterschrift_datum?: string | null
+          unterschrift_image_url?: string | null
+          unterschrift_ort?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          angebot_datum?: string | null
+          angebot_nr?: string | null
+          bauseits?: string[]
+          betreff?: string | null
           created_at?: string
+          empfaenger_name?: string
+          empfaenger_ort?: string | null
+          empfaenger_plz?: string | null
+          empfaenger_strasse?: string | null
+          empfaenger_uid?: string | null
           id?: string
-          material?: string
-          menge?: string | null
-          notizen?: string | null
-          project_id?: string
+          jahr?: number
+          kunden_nummer?: string | null
+          leistung?: string | null
+          lfd_nr?: number
+          lieferschein_datum?: string
+          nummer?: string | null
+          status?: Database["public"]["Enums"]["lieferschein_status"]
+          unterschrift_datum?: string | null
+          unterschrift_image_url?: string | null
+          unterschrift_ort?: string | null
           updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "material_entries_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notifications: {
-        Row: {
-          created_at: string
-          id: string
-          is_read: boolean
-          message: string | null
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          message?: string | null
-          title: string
-          type?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          message?: string | null
-          title?: string
-          type?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
       profiles: {
         Row: {
-          anleitung_completed: boolean | null
           created_at: string
           id: string
-          is_active: boolean | null
+          is_active: boolean
           nachname: string
           updated_at: string
           vorname: string
         }
         Insert: {
-          anleitung_completed?: boolean | null
           created_at?: string
           id: string
-          is_active?: boolean | null
+          is_active?: boolean
           nachname: string
           updated_at?: string
           vorname: string
         }
         Update: {
-          anleitung_completed?: boolean | null
           created_at?: string
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           nachname?: string
           updated_at?: string
           vorname?: string
         }
         Relationships: []
-      }
-      project_invoices: {
-        Row: {
-          created_at: string
-          hours: number
-          id: string
-          invoiced_by: string
-          project_id: string
-          reason: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          hours: number
-          id?: string
-          invoiced_by: string
-          project_id: string
-          reason?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          hours?: number
-          id?: string
-          invoiced_by?: string
-          project_id?: string
-          reason?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      projects: {
-        Row: {
-          adresse: string | null
-          beschreibung: string | null
-          created_at: string
-          id: string
-          kunde_email: string | null
-          kunde_name: string | null
-          kunde_telefon: string | null
-          name: string
-          plz: string
-          status: string | null
-          updated_at: string
-        }
-        Insert: {
-          adresse?: string | null
-          beschreibung?: string | null
-          created_at?: string
-          id?: string
-          kunde_email?: string | null
-          kunde_name?: string | null
-          kunde_telefon?: string | null
-          name: string
-          plz: string
-          status?: string | null
-          updated_at?: string
-        }
-        Update: {
-          adresse?: string | null
-          beschreibung?: string | null
-          created_at?: string
-          id?: string
-          kunde_email?: string | null
-          kunde_name?: string | null
-          kunde_telefon?: string | null
-          name?: string
-          plz?: string
-          status?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      reports: {
-        Row: {
-          arbeitszeit: number
-          beschreibung: string
-          created_at: string
-          datum: string
-          id: string
-          project_id: string
-          unterschrift_url: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          arbeitszeit: number
-          beschreibung: string
-          created_at?: string
-          datum: string
-          id?: string
-          project_id: string
-          unterschrift_url?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          arbeitszeit?: number
-          beschreibung?: string
-          created_at?: string
-          datum?: string
-          id?: string
-          project_id?: string
-          unterschrift_url?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reports_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      time_entries: {
-        Row: {
-          created_at: string
-          datum: string
-          disturbance_id: string | null
-          end_time: string
-          has_breakfast_break: boolean
-          has_lunch_break: boolean
-          id: string
-          location_type: string | null
-          notizen: string | null
-          pause_end: string | null
-          pause_minutes: number
-          pause_start: string | null
-          project_id: string | null
-          start_time: string
-          stunden: number
-          taetigkeit: string | null
-          updated_at: string
-          user_id: string
-          week_type: string | null
-        }
-        Insert: {
-          created_at?: string
-          datum: string
-          disturbance_id?: string | null
-          end_time: string
-          has_breakfast_break?: boolean
-          has_lunch_break?: boolean
-          id?: string
-          location_type?: string | null
-          notizen?: string | null
-          pause_end?: string | null
-          pause_minutes?: number
-          pause_start?: string | null
-          project_id?: string | null
-          start_time: string
-          stunden: number
-          taetigkeit?: string | null
-          updated_at?: string
-          user_id: string
-          week_type?: string | null
-        }
-        Update: {
-          created_at?: string
-          datum?: string
-          disturbance_id?: string | null
-          end_time?: string
-          has_breakfast_break?: boolean
-          has_lunch_break?: boolean
-          id?: string
-          location_type?: string | null
-          notizen?: string | null
-          pause_end?: string | null
-          pause_minutes?: number
-          pause_start?: string | null
-          project_id?: string | null
-          start_time?: string
-          stunden?: number
-          taetigkeit?: string | null
-          updated_at?: string
-          user_id?: string
-          week_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "time_entries_disturbance_id_fkey"
-            columns: ["disturbance_id"]
-            isOneToOne: false
-            referencedRelation: "disturbances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_entries_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      time_entry_disturbances: {
-        Row: {
-          created_at: string
-          disturbance_id: string
-          id: string
-          time_entry_id: string
-        }
-        Insert: {
-          created_at?: string
-          disturbance_id: string
-          id?: string
-          time_entry_id: string
-        }
-        Update: {
-          created_at?: string
-          disturbance_id?: string
-          id?: string
-          time_entry_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "time_entry_disturbances_disturbance_id_fkey"
-            columns: ["disturbance_id"]
-            isOneToOne: false
-            referencedRelation: "disturbances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_entry_disturbances_time_entry_id_fkey"
-            columns: ["time_entry_id"]
-            isOneToOne: false
-            referencedRelation: "time_entries"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      time_entry_workers: {
-        Row: {
-          created_at: string
-          id: string
-          source_entry_id: string
-          target_entry_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          source_entry_id: string
-          target_entry_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          source_entry_id?: string
-          target_entry_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "time_entry_workers_source_entry_id_fkey"
-            columns: ["source_entry_id"]
-            isOneToOne: false
-            referencedRelation: "time_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_entry_workers_target_entry_id_fkey"
-            columns: ["target_entry_id"]
-            isOneToOne: false
-            referencedRelation: "time_entries"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_role_overrides: {
-        Row: {
-          override_role: Database["public"]["Enums"]["app_role"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          override_role: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          override_role?: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_role_overrides_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       user_roles: {
         Row: {
@@ -791,99 +178,13 @@ export type Database = {
         }
         Relationships: []
       }
-      vacation_adjustments: {
-        Row: {
-          adjusted_by: string
-          created_at: string
-          days: number
-          id: string
-          reason: string
-          source: string
-          user_id: string
-        }
-        Insert: {
-          adjusted_by: string
-          created_at?: string
-          days: number
-          id?: string
-          reason: string
-          source?: string
-          user_id: string
-        }
-        Update: {
-          adjusted_by?: string
-          created_at?: string
-          days?: number
-          id?: string
-          reason?: string
-          source?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      week_settings: {
-        Row: {
-          created_at: string
-          id: string
-          updated_at: string
-          user_id: string
-          week_start: string
-          week_type: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id: string
-          week_start: string
-          week_type: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-          week_start?: string
-          week_type?: string
-        }
-        Relationships: []
-      }
-      za_adjustments: {
-        Row: {
-          adjusted_by: string
-          created_at: string
-          hours: number
-          id: string
-          reason: string
-          user_id: string
-        }
-        Insert: {
-          adjusted_by: string
-          created_at?: string
-          hours: number
-          id?: string
-          reason: string
-          user_id: string
-        }
-        Update: {
-          adjusted_by?: string
-          created_at?: string
-          hours?: number
-          id?: string
-          reason?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      create_sick_note_notification: {
-        Args: { p_message: string; p_title: string }
-        Returns: undefined
-      }
+      admin_delete_user: { Args: { _uid: string }; Returns: undefined }
+      admin_get_user_email: { Args: { _uid: string }; Returns: string }
       ensure_user_profile: { Args: never; Returns: Json }
       has_role: {
         Args: {
@@ -892,9 +193,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "administrator" | "mitarbeiter"
+      lieferschein_status: "entwurf" | "versendet" | "unterschrieben"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1023,6 +326,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["administrator", "mitarbeiter"],
+      lieferschein_status: ["entwurf", "versendet", "unterschrieben"],
     },
   },
 } as const
+

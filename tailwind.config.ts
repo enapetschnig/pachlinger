@@ -47,6 +47,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        pachlinger: {
+          red: "hsl(var(--pachlinger-red))",
+          "red-dark": "hsl(var(--pachlinger-red-dark))",
+          orange: "hsl(var(--pachlinger-orange))",
+          anthracite: "hsl(var(--pachlinger-anthracite))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

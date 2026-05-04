@@ -4,10 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { Logo } from "@/components/Logo";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -24,10 +23,7 @@ export default function Auth() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       toast({
@@ -39,9 +35,7 @@ export default function Auth() {
       return;
     }
 
-    toast({
-      title: "Erfolgreich angemeldet",
-    });
+    toast({ title: "Erfolgreich angemeldet" });
     navigate("/");
     setLoading(false);
   };
@@ -56,7 +50,7 @@ export default function Auth() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -75,15 +69,14 @@ export default function Auth() {
       return;
     }
 
-    toast({ 
+    toast({
       title: "Registrierung erfolgreich!",
-      description: "Sie können jetzt die App nutzen.",
+      description: "Sie werden nach Freischaltung durch den Administrator benachrichtigt.",
     });
-    
+
     navigate("/");
     setLoading(false);
   };
-
 
   const handlePasswordReset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -97,11 +90,7 @@ export default function Auth() {
     });
 
     if (error) {
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: error.message,
-      });
+      toast({ variant: "destructive", title: "Fehler", description: error.message });
     } else {
       toast({
         title: "E-Mail gesendet",
@@ -112,14 +101,14 @@ export default function Auth() {
     setLoading(false);
   };
 
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="/fasching-logo.jpg" alt="FASCHING Gebäudetechnik" className="h-16 mx-auto mb-4" />
-          <CardTitle>FASCHING Gebäudetechnik</CardTitle>
-          <CardDescription>Heizung - Kälte - Lüftung - Sanitär - Service</CardDescription>
+          <div className="mx-auto mb-4">
+            <Logo size="lg" />
+          </div>
+          <CardDescription>Lieferscheine erstellen und verwalten</CardDescription>
         </CardHeader>
         <CardContent>
           {showPasswordReset ? (
@@ -134,13 +123,7 @@ export default function Auth() {
               <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">E-Mail</Label>
-                  <Input
-                    id="reset-email"
-                    name="reset-email"
-                    type="email"
-                    placeholder="ihre@email.at"
-                    required
-                  />
+                  <Input id="reset-email" name="reset-email" type="email" placeholder="ihre@email.at" required />
                 </div>
 
                 <Button type="submit" className="w-full" disabled={loading}>
@@ -159,7 +142,6 @@ export default function Auth() {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Login/Registrieren Auswahl */}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -179,7 +161,6 @@ export default function Auth() {
                 </Button>
               </div>
 
-              {/* Formular */}
               <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-4">
                 {!isLogin && (
                   <div className="grid grid-cols-2 gap-4">
@@ -208,13 +189,7 @@ export default function Auth() {
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Passwort</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={6}
-                  />
+                  <Input id="password" name="password" type="password" required minLength={6} />
                 </div>
 
                 {isLogin && (
@@ -228,10 +203,9 @@ export default function Auth() {
                 )}
 
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Lädt..." : (isLogin ? "Anmelden" : "Registrieren")}
+                  {loading ? "Lädt..." : isLogin ? "Anmelden" : "Registrieren"}
                 </Button>
               </form>
-
             </div>
           )}
         </CardContent>

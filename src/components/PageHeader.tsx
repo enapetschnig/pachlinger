@@ -1,6 +1,7 @@
 import { ArrowLeft, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 
 interface PageHeaderProps {
   title?: string;
@@ -10,7 +11,13 @@ interface PageHeaderProps {
   rightContent?: React.ReactNode;
 }
 
-export function PageHeader({ title, showBackButton = true, backPath, showHomeButton = true, rightContent }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  showBackButton = true,
+  backPath,
+  showHomeButton = true,
+  rightContent,
+}: PageHeaderProps) {
   const navigate = useNavigate();
 
   const handleBack = () => {
@@ -37,21 +44,19 @@ export function PageHeader({ title, showBackButton = true, backPath, showHomeBut
                 <span className="hidden sm:inline">Zurück</span>
               </Button>
             )}
-            <img
-              src="/fasching-logo.jpg"
-              alt="FASCHING Gebäudetechnik"
-              className="h-8 sm:h-10 cursor-pointer hover:opacity-80 transition-opacity object-contain shrink-0"
+            <button
+              type="button"
               onClick={() => navigate("/")}
-            />
+              className="shrink-0 hover:opacity-80 transition-opacity"
+              aria-label="Zur Startseite"
+            >
+              <Logo size="md" />
+            </button>
             {title && (
               <h1 className="text-lg sm:text-2xl font-bold truncate">{title}</h1>
             )}
           </div>
-          {rightContent && (
-            <div className="shrink-0">
-              {rightContent}
-            </div>
-          )}
+          {rightContent && <div className="shrink-0">{rightContent}</div>}
         </div>
       </div>
     </header>
