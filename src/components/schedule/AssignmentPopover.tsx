@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Trash2, Clock, Users } from "lucide-react";
+import { Trash2, Clock, Users, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,14 @@ import {
 } from "@/components/ui/dialog";
 import type { Profile, Project, Assignment } from "./scheduleTypes";
 
+type Block = {
+  id: string;
+  projectId: string;
+  startTime: string;
+  endTime: string;
+  notizen: string;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,6 +40,8 @@ interface Props {
   assignment: Assignment | null;
   projects: Project[];
   profiles?: Profile[];
+  initialAdditionalUserIds?: string[];
+  /** Single update path (Edit-Modus). */
   onAssign: (
     userId: string,
     date: Date,
@@ -39,11 +49,24 @@ interface Props {
     notizen?: string,
     startTime?: string,
     endTime?: string,
-    assignmentId?: string,
-    additionalUserIds?: string[]
+    assignmentId?: string
+  ) => void;
+  /** Batch insert path (Erstellen-Modus mit beliebig vielen MA × Tagen × Blöcken). */
+  onAssignBatch?: (
+    uids: string[],
+    dates: Date[],
+    blocks: Array<{ projectId: string; startTime: string; endTime: string; notizen: string }>
   ) => void;
   onRemove: (userId: string, date: Date, assignmentId?: string) => void;
 }
+
+const newBlock = (): Block => ({
+  id: crypto.randomUUID(),
+  projectId: "",
+  startTime: "07:00",
+  endTime: "16:00",
+  notizen: "",
+});
 
 export function AssignmentPopover({
   open,
@@ -54,27 +77,54 @@ export function AssignmentPopover({
   assignment,
   projects,
   profiles = [],
+  initialAdditionalUserIds,
   onAssign,
+  onAssignBatch,
   onRemove,
 }: Props) {
-  const [selectedProject, setSelectedProject] = useState(assignment?.project_id || "");
-  const [notizen, setNotizen] = useState(assignment?.notizen || "");
-  const [startTime, setStartTime] = useState(assignment?.start_time || "07:00");
-  const [endTime, setEndTime] = useState(assignment?.end_time || "16:00");
+  const [blocks, setBlocks] = useState<Block[]>([newBlock()]);
   const [additionalUserIds, setAdditionalUserIds] = useState<string[]>([]);
 
-  const isRangeMode = days && days.length > 1;
+  const isRangeMode = !!(days && days.length > 1);
   const isEditMode = !!assignment;
 
   useEffect(() => {
-    setSelectedProject(assignment?.project_id || "");
-    setNotizen(assignment?.notizen || "");
-    setStartTime(assignment?.start_time || "07:00");
-    setEndTime(assignment?.end_time || "17:07:30");
-    setAdditionalUserIds([]);
+    if (assignment) {
+      // Edit-Modus: bestehenden Eintrag in einen einzelnen Block laden
+      setBlocks([
+        {
+          id: assignment.id,
+          projectId: assignment.project_id,
+          startTime: assignment.start_time || "07:00",
+          endTime: assignment.end_time || "16:00",
+          notizen: assignment.notizen || "",
+        },
+      ]);
+    } else {
+      setBlocks([newBlock()]);
+    }
+    setAdditionalUserIds(initialAdditionalUserIds || []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment, open]);
 
   if (!profile || !date) return null;
+
+  const updateBlock = (id: string, field: keyof Block, value: string) => {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
+  };
+
+  const addBlock = () => {
+    setBlocks((prev) => {
+      const last = prev[prev.length - 1];
+      // Default: neue Zeit beginnt da, wo die letzte aufgehört hat
+      const startTime = last?.endTime || "12:00";
+      return [...prev, { ...newBlock(), startTime }];
+    });
+  };
+
+  const removeBlock = (id: string) => {
+    setBlocks((prev) => (prev.length === 1 ? prev : prev.filter((b) => b.id !== id)));
+  };
 
   const toggleAdditional = (uid: string) => {
     setAdditionalUserIds((prev) =>
@@ -83,55 +133,38 @@ export function AssignmentPopover({
   };
 
   const handleSave = () => {
-    if (!selectedProject) return;
     if (isEditMode) {
-      // Edit: nur den bestehenden Eintrag aktualisieren
-      onAssign(
-        profile.id,
-        date,
-        selectedProject,
-        notizen || undefined,
-        startTime,
-        endTime,
-        assignment!.id
-      );
-    } else if (isRangeMode) {
-      for (const d of days!) {
-        const dow = d.getDay();
-        if (dow === 0 || dow === 5 || dow === 6) continue;
-        onAssign(
-          profile.id,
-          d,
-          selectedProject,
-          notizen || undefined,
-          startTime,
-          endTime,
-          undefined,
-          additionalUserIds
-        );
-      }
+      const b = blocks[0];
+      if (!b?.projectId) return;
+      onAssign(profile.id, date, b.projectId, b.notizen || undefined, b.startTime, b.endTime, assignment!.id);
+      onOpenChange(false);
+      return;
+    }
+
+    const validBlocks = blocks.filter((b) => b.projectId);
+    if (validBlocks.length === 0) return;
+
+    if (onAssignBatch) {
+      const dates = isRangeMode ? days! : [date];
+      const uids = [profile.id, ...additionalUserIds];
+      onAssignBatch(uids, dates, validBlocks);
     } else {
-      onAssign(
-        profile.id,
-        date,
-        selectedProject,
-        notizen || undefined,
-        startTime,
-        endTime,
-        undefined,
-        additionalUserIds
-      );
+      // Fallback: single onAssign in Schleife
+      const dates = isRangeMode ? days! : [date];
+      const uids = [profile.id, ...additionalUserIds];
+      for (const uid of uids) {
+        for (const d of dates) {
+          if (isRangeMode) {
+            const dow = d.getDay();
+            if (dow === 0 || dow === 5 || dow === 6) continue;
+          }
+          for (const b of validBlocks) {
+            onAssign(uid, d, b.projectId, b.notizen || undefined, b.startTime, b.endTime);
+          }
+        }
+      }
     }
     onOpenChange(false);
-  };
-
-  // Calculate hours from times
-  const calcHours = () => {
-    const [sh, sm] = startTime.split(":").map(Number);
-    const [eh, em] = endTime.split(":").map(Number);
-    const mins = (eh * 60 + em) - (sh * 60 + sm);
-    const pause = mins > 360 ? 30 : 0;
-    return Math.max(0, (mins - pause) / 60).toFixed(1);
   };
 
   const dateLabel = isRangeMode
@@ -139,6 +172,19 @@ export function AssignmentPopover({
     : format(date, "EEEE, dd. MMMM yyyy", { locale: de });
 
   const otherProfiles = profiles.filter((p) => p.id !== profile.id);
+  const totalRows =
+    blocks.filter((b) => b.projectId).length *
+    (isRangeMode ? days!.filter((d) => { const dow = d.getDay(); return dow !== 0 && dow !== 5 && dow !== 6; }).length : 1) *
+    (1 + additionalUserIds.length);
+
+  // Calculate hours for a block
+  const calcHours = (b: Block) => {
+    const [sh, sm] = b.startTime.split(":").map(Number);
+    const [eh, em] = b.endTime.split(":").map(Number);
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    const pause = mins > 360 ? 30 : 0;
+    return Math.max(0, (mins - pause) / 60).toFixed(1);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -152,58 +198,101 @@ export function AssignmentPopover({
           <p className="text-sm text-muted-foreground">{dateLabel}</p>
         </DialogHeader>
 
-        <div className="space-y-3 pt-2">
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Projekt zuweisen..." />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-4 pt-2">
+          {!isEditMode && (
+            <p className="text-xs text-muted-foreground bg-muted/40 rounded-md p-2 border border-dashed">
+              Du kannst hier mehrere Einteilungen für den/die Mitarbeiter und Tag(e) eintragen.
+              Jeder Block wird als eigene Zuweisung gebucht (z.B. 07:00–12:00 Kunde A, 12:00–14:00 Kunde B).
+            </p>
+          )}
 
-          {/* Time range */}
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Arbeitszeit
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="h-9 text-sm"
-              />
-              <span className="text-muted-foreground text-sm">–</span>
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="h-9 text-sm"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">{calcHours()}h (abzgl. Pause)</p>
+          {/* Block-Liste */}
+          <div className="space-y-3">
+            {blocks.map((b, idx) => (
+              <div key={b.id} className="rounded-md border p-3 space-y-2 bg-card relative">
+                {!isEditMode && blocks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeBlock(b.id)}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-destructive"
+                    title="Entfernen"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Einteilung {idx + 1}
+                  </span>
+                </div>
+                <Select
+                  value={b.projectId}
+                  onValueChange={(v) => updateBlock(b.id, "projectId", v)}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Projekt wählen…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Arbeitszeit
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      value={b.startTime}
+                      onChange={(e) => updateBlock(b.id, "startTime", e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                    <span className="text-muted-foreground text-sm">–</span>
+                    <Input
+                      type="time"
+                      value={b.endTime}
+                      onChange={(e) => updateBlock(b.id, "endTime", e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{calcHours(b)}h (abzgl. Pause)</p>
+                </div>
+
+                <Textarea
+                  placeholder="Notiz (optional)…"
+                  value={b.notizen}
+                  onChange={(e) => updateBlock(b.id, "notizen", e.target.value)}
+                  rows={2}
+                  className="text-sm resize-none"
+                />
+              </div>
+            ))}
           </div>
 
-          <Textarea
-            placeholder="Notiz für den Mitarbeiter (optional)..."
-            value={notizen}
-            onChange={(e) => setNotizen(e.target.value)}
-            rows={2}
-            className="text-sm resize-none"
-          />
+          {!isEditMode && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addBlock}
+              className="w-full gap-2 border-dashed"
+            >
+              <Plus className="h-4 w-4" />
+              Weitere Einteilung
+            </Button>
+          )}
 
-          {/* Multi-Mitarbeiter (nur beim Erstellen, nicht beim Bearbeiten) */}
+          {/* Multi-Mitarbeiter (nur beim Erstellen) */}
           {!isEditMode && otherProfiles.length > 0 && (
             <div className="space-y-2">
               <Label className="text-xs flex items-center gap-1">
                 <Users className="h-3 w-3" />
-                Auch zuweisen an (gleicher Auftrag, gleiche Zeit)
+                Auch zuweisen an
               </Label>
               <div className="rounded-md border bg-muted/30 max-h-40 overflow-y-auto p-2 space-y-1.5">
                 {otherProfiles.map((p) => (
@@ -221,12 +310,14 @@ export function AssignmentPopover({
                   </label>
                 ))}
               </div>
-              {additionalUserIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Wird zusätzlich für {additionalUserIds.length} weitere(n) MA angelegt.
-                </p>
-              )}
             </div>
+          )}
+
+          {!isEditMode && totalRows > 1 && (
+            <p className="text-xs text-muted-foreground">
+              Es werden <span className="font-semibold text-foreground">{totalRows}</span> Einteilung(en) angelegt
+              ({1 + additionalUserIds.length} MA × {isRangeMode ? days!.filter((d) => { const dow = d.getDay(); return dow !== 0 && dow !== 5 && dow !== 6; }).length : 1} Tag(e) × {blocks.filter((b) => b.projectId).length} Block/Blöcke).
+            </p>
           )}
 
           {isEditMode && !isRangeMode && (
@@ -249,14 +340,12 @@ export function AssignmentPopover({
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!selectedProject}
+            disabled={blocks.filter((b) => b.projectId).length === 0}
           >
             {isEditMode
               ? "Speichern"
-              : isRangeMode
-              ? `${days!.length} Tage zuweisen`
-              : additionalUserIds.length > 0
-              ? `Für ${additionalUserIds.length + 1} MA zuweisen`
+              : totalRows > 1
+              ? `${totalRows} Einteilung(en) anlegen`
               : "Zuweisen"}
           </Button>
         </DialogFooter>

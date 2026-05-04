@@ -73,6 +73,7 @@ export default function ScheduleBoard() {
   const [popoverDate, setPopoverDate] = useState<Date | null>(null);
   const [popoverDays, setPopoverDays] = useState<Date[]>([]);
   const [popoverAssignmentId, setPopoverAssignmentId] = useState<string | null>(null);
+  const [initialAdditionalUserIds, setInitialAdditionalUserIds] = useState<string[]>([]);
 
   // Day detail sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -152,6 +153,61 @@ export default function ScheduleBoard() {
     }
     if (data) {
       setAssignments((prev) => [...prev, ...(data as Assignment[])]);
+    }
+  };
+
+  // Batch-Insert: alle Kombinationen aus uids × dates × blocks anlegen.
+  // Fr/Sa/So werden bei mehrtägigen Auswahlen übersprungen (4-Tage-Woche).
+  const handleAssignBatch = async (
+    uids: string[],
+    dates: Date[],
+    blocks: Array<{ projectId: string; startTime: string; endTime: string; notizen: string }>
+  ) => {
+    const rows: Array<Record<string, unknown>> = [];
+    const isMultiDay = dates.length > 1;
+    for (const uid of uids) {
+      for (const d of dates) {
+        if (isMultiDay) {
+          const dow = d.getDay();
+          if (dow === 0 || dow === 5 || dow === 6) continue;
+        }
+        const datum = format(d, "yyyy-MM-dd");
+        for (const b of blocks) {
+          if (!b.projectId) continue;
+          rows.push({
+            user_id: uid,
+            datum,
+            created_by: userId,
+            project_id: b.projectId,
+            start_time: b.startTime || "07:00",
+            end_time: b.endTime || "16:00",
+            notizen: b.notizen?.trim() || null,
+          });
+        }
+      }
+    }
+    if (rows.length === 0) {
+      toast({ variant: "destructive", title: "Nichts zu speichern", description: "Bitte mindestens ein Projekt wählen." });
+      return;
+    }
+    const { data, error } = await (supabase as any)
+      .from("worker_assignments")
+      .insert(rows)
+      .select();
+    if (error) {
+      const conflict = String(error.code) === "23505" || /unique/i.test(error.message || "");
+      toast({
+        variant: "destructive",
+        title: conflict ? "Konflikt" : "Fehler",
+        description: conflict
+          ? "Mindestens eine Kombination existiert bereits."
+          : error.message,
+      });
+      return;
+    }
+    if (data) {
+      setAssignments((prev) => [...prev, ...(data as Assignment[])]);
+      toast({ title: "Zuweisungen gespeichert", description: `${rows.length} Einteilung(en) angelegt.` });
     }
   };
 
@@ -321,6 +377,7 @@ export default function ScheduleBoard() {
     setPopoverDate(date);
     setPopoverDays([]);
     setPopoverAssignmentId(null);
+    setInitialAdditionalUserIds([]);
     setPopoverOpen(true);
   };
 
@@ -329,14 +386,18 @@ export default function ScheduleBoard() {
     setPopoverDate(parseISO(assignment.datum));
     setPopoverDays([]);
     setPopoverAssignmentId(assignment.id);
+    setInitialAdditionalUserIds([]);
     setPopoverOpen(true);
   };
 
-  const handleRangeSelect = (uid: string, selectedDays: Date[]) => {
-    setPopoverUserId(uid);
+  const handleRangeSelect = (uids: string[], selectedDays: Date[]) => {
+    if (uids.length === 0 || selectedDays.length === 0) return;
+    const [primary, ...others] = uids;
+    setPopoverUserId(primary);
     setPopoverDate(selectedDays[0]);
-    setPopoverDays(selectedDays);
+    setPopoverDays(selectedDays.length > 1 ? selectedDays : []);
     setPopoverAssignmentId(null);
+    setInitialAdditionalUserIds(others);
     setPopoverOpen(true);
   };
 
@@ -481,9 +542,12 @@ export default function ScheduleBoard() {
         assignment={popoverAssignment || null}
         projects={projects}
         profiles={profiles}
-        onAssign={async (uid, date, projectId, notizen, startTime, endTime, assignmentId, additionalUserIds) => {
-          await handleAssign(uid, date, projectId, notizen, startTime, endTime, assignmentId, additionalUserIds);
+        initialAdditionalUserIds={initialAdditionalUserIds}
+        onAssign={async (uid, date, projectId, notizen, startTime, endTime, assignmentId) => {
+          // Edit-Pfad: Single Update
+          await handleAssign(uid, date, projectId, notizen, startTime, endTime, assignmentId);
         }}
+        onAssignBatch={handleAssignBatch}
         onRemove={handleRemove}
       />
 
