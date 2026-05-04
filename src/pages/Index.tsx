@@ -357,11 +357,16 @@ export default function Index() {
                   const isToday = datum === today;
                   const isTomorrow = datum === tomorrowStr;
                   const label = isToday ? "Heute" : isTomorrow ? "Morgen" : new Date(datum).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" });
+                  // nach Startzeit sortieren, dann zeigt der Tag den chronologischen Ablauf
+                  const sortedEntries = [...entries].sort((a: any, b: any) =>
+                    (a.start_time || "").localeCompare(b.start_time || "")
+                  );
+                  const hasMultiple = sortedEntries.length > 1;
 
                   return (
-                    <Card key={datum} className={isToday ? "border-primary/50 bg-primary/5" : ""}>
+                    <Card key={datum} className={isToday ? "border-primary/50 bg-primary/5" : hasMultiple ? "border-amber-400/60 bg-amber-50/40 dark:bg-amber-900/10" : ""}>
                       <CardContent className="p-3 sm:p-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <span className={`text-sm font-bold ${isToday ? "text-primary" : "text-muted-foreground"}`}>
                             {label}
                           </span>
@@ -370,16 +375,30 @@ export default function Index() {
                               Heute
                             </span>
                           )}
+                          {hasMultiple && (
+                            <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-semibold">
+                              {sortedEntries.length} Einsätze
+                            </span>
+                          )}
                         </div>
                         <div className="space-y-2">
-                          {entries.map((a: any) => (
-                            <div key={a.id} className="flex items-start gap-2">
-                              <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                          {sortedEntries.map((a: any, idx: number) => (
+                            <div
+                              key={a.id}
+                              className={`flex items-start gap-2 ${hasMultiple && idx > 0 ? "border-t pt-2" : ""}`}
+                            >
+                              {hasMultiple ? (
+                                <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-amber-500 text-white text-xs font-bold shrink-0 mt-0.5 px-1.5">
+                                  {idx + 1}
+                                </span>
+                              ) : (
+                                <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                              )}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-semibold text-base">{a.projects?.name || "Unbekanntes Projekt"}</p>
                                   {(a.start_time || a.end_time) && (
-                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
                                       {a.start_time?.slice(0, 5) || "?"} – {a.end_time?.slice(0, 5) || "?"}
                                     </span>
                                   )}
