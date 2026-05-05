@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+export { formatDateDe, statusLabel } from "./lieferschein-format";
 
 export type LieferscheinStatus = "entwurf" | "versendet" | "unterschrieben";
 
@@ -234,19 +235,6 @@ export async function getSignatureUrl(path: string): Promise<string | null> {
     .createSignedUrl(path, 60 * 60);
   if (error) return null;
   return data?.signedUrl ?? null;
-}
-
-export function statusLabel(status: LieferscheinStatus): string {
-  if (status === "entwurf") return "Entwurf";
-  if (status === "versendet") return "Versendet";
-  return "Unterschrieben";
-}
-
-export function formatDateDe(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("de-DE");
 }
 
 function emptyToNull(v: string | null | undefined): string | null {

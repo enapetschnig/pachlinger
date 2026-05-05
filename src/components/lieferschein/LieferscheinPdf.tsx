@@ -6,181 +6,241 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
-import { LieferscheinWithPositions, formatDateDe } from "@/lib/lieferschein";
+import type { LieferscheinWithPositions } from "@/lib/lieferschein";
+import { formatDateDe } from "@/lib/lieferschein-format";
 
 const PACHLINGER_RED = "#D9201E";
 const PACHLINGER_ORANGE = "#F26B1F";
 const ANTHRACITE = "#1F2429";
 const BORDER = "#1F2429";
-const MUTED = "#6B7280";
+const MUTED = "#5F6770";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 36,
+    paddingTop: 24,
+    paddingBottom: 56,
+    paddingLeft: 40,
+    paddingRight: 40,
     fontSize: 10,
     fontFamily: "Helvetica",
     color: ANTHRACITE,
-    lineHeight: 1.35,
+    lineHeight: 1.25,
   },
+
+  // ----- Reihe 1: Sender (links) + Brand/Logo (rechts) -----
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 18,
+    marginBottom: 10,
   },
-  senderBlock: {
-    flexDirection: "column",
-    width: "55%",
+  senderBox: { width: "55%" },
+  senderLine: { fontSize: 9, lineHeight: 1.4 },
+
+  brandBox: {
+    width: "42%",
+    alignItems: "flex-end",
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    marginBottom: 6,
   },
   brandPachlinger: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 22,
+    fontFamily: "Helvetica-BoldOblique",
+    fontSize: 26,
     color: PACHLINGER_RED,
     letterSpacing: -0.5,
   },
   brandSuffix: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 14,
+    fontSize: 16,
     color: ANTHRACITE,
     marginLeft: 4,
   },
-  brandTagline: {
+  brandUndTeam: {
+    fontFamily: "Helvetica-Oblique",
+    fontSize: 12,
+    color: ANTHRACITE,
+    marginTop: 1,
+  },
+  brandTagBar: {
+    marginTop: 6,
+    backgroundColor: PACHLINGER_RED,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  brandTagText: {
+    color: "#FFFFFF",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+    letterSpacing: 0.4,
+  },
+  brandTagBar2: {
+    backgroundColor: PACHLINGER_ORANGE,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  brandHotline: {
+    marginTop: 4,
     fontFamily: "Helvetica-Bold",
     fontSize: 9,
     color: PACHLINGER_RED,
-    marginBottom: 4,
   },
-  brandSubtagline: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 8,
-    color: PACHLINGER_ORANGE,
-    marginBottom: 6,
-  },
-  senderInfo: { fontSize: 9, lineHeight: 1.4 },
-  recipientBlock: {
+
+  // ----- Reihe 2: Empfänger (links) + Meta-Tabelle (rechts) -----
+  middleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 14,
+    alignItems: "flex-start",
+    marginBottom: 8,
   },
-  recipientLeft: { width: "55%" },
-  recipientLine: {
+  recipientBox: { width: "55%", paddingTop: 8 },
+  recipientAddrLine: {
     fontSize: 8,
     color: MUTED,
     borderBottomWidth: 0.5,
-    borderBottomColor: BORDER,
+    borderBottomColor: MUTED,
     paddingBottom: 1,
-    marginBottom: 5,
+    marginBottom: 8,
   },
-  recipientName: { fontFamily: "Helvetica-Bold", fontSize: 12, marginBottom: 1 },
-  recipientText: { fontSize: 11 },
+  recipientName: { fontFamily: "Helvetica-Bold", fontSize: 13, marginBottom: 1 },
+  recipientText: { fontFamily: "Helvetica-Bold", fontSize: 13 },
+
+  metaBox: { width: "42%" },
   metaTable: {
-    width: "42%",
-    borderWidth: 0.5,
+    borderWidth: 0.7,
     borderColor: BORDER,
   },
   metaTitleRow: {
-    backgroundColor: ANTHRACITE,
-    paddingVertical: 3,
-    paddingHorizontal: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderBottomWidth: 0.7,
+    borderBottomColor: BORDER,
   },
   metaTitle: {
-    color: "#FFFFFF",
     fontFamily: "Helvetica-Bold",
-    fontSize: 13,
+    fontSize: 14,
+    color: ANTHRACITE,
   },
   metaRow: {
     flexDirection: "row",
     borderTopWidth: 0.5,
     borderTopColor: BORDER,
+    minHeight: 18,
   },
   metaCellLabel: {
     width: "55%",
     paddingVertical: 3,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     borderRightWidth: 0.5,
     borderRightColor: BORDER,
-    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
   },
   metaCellValue: {
     flex: 1,
     paddingVertical: 3,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
+    fontSize: 10,
   },
-  page1Of1: {
+  pageOf: {
     fontSize: 8,
     color: MUTED,
     textAlign: "right",
-    marginTop: 2,
+    marginTop: 3,
   },
+
+  // ----- Betreff -----
   betreffRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    marginTop: 14,
+    marginTop: 6,
     marginBottom: 8,
   },
   betreffLabel: {
     fontFamily: "Helvetica-Bold",
     fontSize: 13,
     textDecoration: "underline",
-    marginRight: 12,
+    marginRight: 14,
   },
   betreffText: {
     fontFamily: "Helvetica-Bold",
     fontSize: 13,
   },
+
+  // ----- Spaltenkopf "Pos. Menge Einheit Bezeichnung" -----
   posHeaderRow: {
     flexDirection: "row",
-    borderWidth: 0.5,
+    borderTopWidth: 0.7,
+    borderBottomWidth: 0.7,
     borderColor: BORDER,
+    paddingVertical: 3,
     backgroundColor: "#F2F2F2",
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    marginBottom: 0,
   },
-  posHeaderCell: { fontSize: 8, fontFamily: "Helvetica-Bold" },
+  posHeaderCell: { fontSize: 8.5, fontFamily: "Helvetica-Bold", paddingHorizontal: 4 },
   colPos: { width: 28 },
-  colMenge: { width: 38, textAlign: "right", paddingRight: 4 },
-  colEinheit: { width: 40 },
+  colMenge: { width: 50, textAlign: "right", paddingRight: 6 },
+  colEinheit: { width: 46 },
   colBezeichnung: { flex: 1 },
+
   angebotLine: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 2,
+    paddingLeft: 70,
   },
   bauseitsHeader: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
-    marginTop: 12,
-    marginBottom: 2,
+    marginTop: 8,
+    marginBottom: 1,
+    paddingLeft: 70,
   },
   bauseitsItem: {
     fontSize: 10,
-    marginLeft: 14,
+    paddingLeft: 86,
   },
-  positionsBlock: { marginTop: 16 },
+
+  positionsBlock: { marginTop: 10 },
   positionRow: {
     flexDirection: "row",
-    paddingVertical: 6,
+    paddingVertical: 2,
     alignItems: "flex-start",
   },
-  positionPos: { width: 28, fontSize: 10 },
-  positionMenge: { width: 38, fontSize: 10, textAlign: "right", paddingRight: 4 },
-  positionEinheit: { width: 40, fontSize: 10 },
+  positionPos: { width: 28, fontSize: 10, paddingHorizontal: 4 },
+  positionMenge: { width: 50, fontSize: 10, textAlign: "right", paddingRight: 6 },
+  positionEinheit: { width: 46, fontSize: 10, paddingLeft: 4 },
   positionBezeichnung: { flex: 1, fontSize: 10, fontFamily: "Helvetica-Bold" },
-  rabattLine: { fontSize: 9, color: MUTED, marginLeft: 106, marginTop: 2 },
+  rabattLine: {
+    fontSize: 9,
+    color: MUTED,
+    paddingLeft: 132,
+    marginTop: 0,
+    marginBottom: 2,
+  },
+
+  // ----- Unterschrift -----
   signatureBlock: {
-    marginTop: 60,
+    marginTop: 24,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
-  signCell: { width: "45%", alignItems: "center" },
+  signCell: { width: "44%", alignItems: "center" },
+  signSpacer: {
+    height: 40,
+    width: "100%",
+  },
+  signImage: {
+    height: 40,
+    marginBottom: 2,
+    objectFit: "contain",
+  },
+  signCity: {
+    fontSize: 10,
+    marginBottom: 2,
+    textAlign: "center",
+  },
   signLine: {
     width: "100%",
     borderTopWidth: 0.7,
@@ -190,27 +250,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
   },
-  signImage: {
-    height: 50,
-    marginBottom: 2,
-    objectFit: "contain",
-  },
-  signCity: {
-    fontSize: 10,
-    marginBottom: 2,
-  },
+
+  // ----- Footer -----
   footer: {
     position: "absolute",
     bottom: 22,
-    left: 36,
-    right: 36,
+    left: 40,
+    right: 40,
     fontSize: 8,
     color: MUTED,
     textAlign: "center",
-    borderTopWidth: 0.5,
-    borderTopColor: BORDER,
-    paddingTop: 6,
   },
+  footerLine: { fontSize: 8, color: MUTED, textAlign: "center" },
 });
 
 interface PdfProps {
@@ -220,73 +271,44 @@ interface PdfProps {
 
 export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
   return (
-    <Document>
+    <Document
+      title={`Lieferschein ${ls.nummer}`}
+      author="Pachlinger GmbH"
+      subject={ls.betreff ?? "Lieferschein"}
+    >
       <Page size="A4" style={styles.page}>
+        {/* Reihe 1: Sender links · Logo rechts */}
         <View style={styles.topRow}>
-          <View style={styles.senderBlock}>
+          <View style={styles.senderBox}>
+            <Text style={styles.senderLine}>Pachlinger GmbH</Text>
+            <Text style={styles.senderLine}>A-8833 Teufenbach-Katsch, Teuffenbachstr. 21</Text>
+            <Text style={styles.senderLine}>Mobil: (0664) 52 46 079</Text>
+            <Text style={styles.senderLine}>E-Mail: hannes@pachlinger.at</Text>
+            <Text style={styles.senderLine}>www.pachlinger.at</Text>
+            <Text style={styles.senderLine}>UID: AT U68725007</Text>
+            <Text style={styles.senderLine}>FN 416356 p</Text>
+          </View>
+
+          <View style={styles.brandBox}>
             <View style={styles.brandRow}>
               <Text style={styles.brandPachlinger}>Pachlinger</Text>
               <Text style={styles.brandSuffix}>GmbH</Text>
             </View>
-            <Text style={styles.brandTagline}>LÜFTUNG · ENTFEUCHTUNG · KLIMA</Text>
-            <Text style={styles.brandSubtagline}>WÄRMERÜCKGEWINNUNG · ARBEITSBÜHNEN</Text>
-            <Text style={styles.senderInfo}>Pachlinger GmbH</Text>
-            <Text style={styles.senderInfo}>A-8833 Teufenbach-Katsch, Teuffenbachstr. 21</Text>
-            <Text style={styles.senderInfo}>Mobil: (0664) 52 46 079</Text>
-            <Text style={styles.senderInfo}>E-Mail: hannes@pachlinger.at</Text>
-            <Text style={styles.senderInfo}>www.pachlinger.at</Text>
-            <Text style={styles.senderInfo}>UID: AT U68725007 · FN 416356 p</Text>
-          </View>
-          <View style={styles.metaTable}>
-            <View style={styles.metaTitleRow}>
-              <Text style={styles.metaTitle}>LIEFERSCHEIN</Text>
+            <Text style={styles.brandUndTeam}>...und Team</Text>
+            <View style={styles.brandTagBar}>
+              <Text style={styles.brandTagText}>LÜFTUNG · ENTFEUCHTUNG · KLIMA</Text>
             </View>
-            <View style={styles.metaRow}>
-              <View style={styles.metaCellLabel}>
-                <Text>Lieferscheindatum:</Text>
-              </View>
-              <View style={styles.metaCellValue}>
-                <Text>{formatDateDe(ls.lieferschein_datum)}</Text>
-              </View>
+            <View style={styles.brandTagBar2}>
+              <Text style={styles.brandTagText}>WÄRMERÜCKGEWINNUNG · ARBEITSBÜHNEN</Text>
             </View>
-            <View style={styles.metaRow}>
-              <View style={styles.metaCellLabel}>
-                <Text>Lieferscheinnummer:</Text>
-              </View>
-              <View style={styles.metaCellValue}>
-                <Text>{ls.nummer}</Text>
-              </View>
-            </View>
-            <View style={styles.metaRow}>
-              <View style={styles.metaCellLabel}>
-                <Text>Kundennummer:</Text>
-              </View>
-              <View style={styles.metaCellValue}>
-                <Text>{ls.kunden_nummer ?? ""}</Text>
-              </View>
-            </View>
-            <View style={styles.metaRow}>
-              <View style={styles.metaCellLabel}>
-                <Text>Leistung:</Text>
-              </View>
-              <View style={styles.metaCellValue}>
-                <Text>{ls.leistung ?? ""}</Text>
-              </View>
-            </View>
-            <View style={styles.metaRow}>
-              <View style={styles.metaCellLabel}>
-                <Text>Ihre UID-Nr.:</Text>
-              </View>
-              <View style={styles.metaCellValue}>
-                <Text>{ls.empfaenger_uid ?? ""}</Text>
-              </View>
-            </View>
+            <Text style={styles.brandHotline}>Lüftungshotline: (0664) 5246079</Text>
           </View>
         </View>
 
-        <View style={styles.recipientBlock}>
-          <View style={styles.recipientLeft}>
-            <Text style={styles.recipientLine}>
+        {/* Reihe 2: Empfänger links · Meta-Tabelle rechts */}
+        <View style={styles.middleRow}>
+          <View style={styles.recipientBox}>
+            <Text style={styles.recipientAddrLine}>
               Pachlinger GmbH, Teuffenbachstr. 21, 8833 Teufenbach-Katsch
             </Text>
             <Text style={styles.recipientName}>{ls.empfaenger_name}</Text>
@@ -299,16 +321,65 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
               </Text>
             )}
           </View>
-          <Text style={styles.page1Of1}>Seite 1 von 1</Text>
+          <View style={styles.metaBox}>
+            <View style={styles.metaTable}>
+              <View style={styles.metaTitleRow}>
+                <Text style={styles.metaTitle}>LIEFERSCHEIN</Text>
+              </View>
+              <View style={styles.metaRow}>
+                <View style={styles.metaCellLabel}>
+                  <Text>Lieferscheindatum:</Text>
+                </View>
+                <View style={styles.metaCellValue}>
+                  <Text>{formatDateDe(ls.lieferschein_datum)}</Text>
+                </View>
+              </View>
+              <View style={styles.metaRow}>
+                <View style={styles.metaCellLabel}>
+                  <Text>Lieferscheinnummer:</Text>
+                </View>
+                <View style={styles.metaCellValue}>
+                  <Text>{ls.nummer}</Text>
+                </View>
+              </View>
+              <View style={styles.metaRow}>
+                <View style={styles.metaCellLabel}>
+                  <Text>Kundennummer:</Text>
+                </View>
+                <View style={styles.metaCellValue}>
+                  <Text>{ls.kunden_nummer ?? ""}</Text>
+                </View>
+              </View>
+              <View style={styles.metaRow}>
+                <View style={styles.metaCellLabel}>
+                  <Text>Leistung:</Text>
+                </View>
+                <View style={styles.metaCellValue}>
+                  <Text>{ls.leistung ?? ""}</Text>
+                </View>
+              </View>
+              <View style={styles.metaRow}>
+                <View style={styles.metaCellLabel}>
+                  <Text>Ihre UID-Nr.:</Text>
+                </View>
+                <View style={styles.metaCellValue}>
+                  <Text>{ls.empfaenger_uid ?? ""}</Text>
+                </View>
+              </View>
+            </View>
+            <Text style={styles.pageOf}>Seite 1 von 1</Text>
+          </View>
         </View>
 
-        {ls.betreff && (
+        {/* Betreff */}
+        {ls.betreff ? (
           <View style={styles.betreffRow}>
             <Text style={styles.betreffLabel}>Betreff:</Text>
             <Text style={styles.betreffText}>{ls.betreff}</Text>
           </View>
-        )}
+        ) : null}
 
+        {/* Spaltenkopf */}
         <View style={styles.posHeaderRow}>
           <Text style={[styles.posHeaderCell, styles.colPos]}>Pos.</Text>
           <Text style={[styles.posHeaderCell, styles.colMenge]}>Menge</Text>
@@ -316,24 +387,27 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
           <Text style={[styles.posHeaderCell, styles.colBezeichnung]}>Bezeichnung</Text>
         </View>
 
-        {ls.angebot_nr && (
+        {/* Angebot-Referenz (zwischen Header und Bauseits, wie im Original) */}
+        {ls.angebot_nr ? (
           <Text style={styles.angebotLine}>
             Angebot Nr.: {ls.angebot_nr}
             {ls.angebot_datum ? ` vom ${formatDateDe(ls.angebot_datum)}` : ""}
           </Text>
-        )}
+        ) : null}
 
-        {ls.bauseits.length > 0 && (
+        {/* Bauseits */}
+        {ls.bauseits.length > 0 ? (
           <View>
             <Text style={styles.bauseitsHeader}>Bauseits:</Text>
             {ls.bauseits.map((b, i) => (
               <Text key={i} style={styles.bauseitsItem}>
-                · {b}
+                •  {b}
               </Text>
             ))}
           </View>
-        )}
+        ) : null}
 
+        {/* Positionen */}
         <View style={styles.positionsBlock}>
           {ls.positionen.map((p) => (
             <View key={p.id ?? p.pos_nr}>
@@ -348,35 +422,47 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
                 <Text style={styles.positionEinheit}>{p.einheit}</Text>
                 <Text style={styles.positionBezeichnung}>{p.bezeichnung}</Text>
               </View>
-              {p.rabatt_eur !== null && p.rabatt_eur !== undefined && (
+              {p.rabatt_eur !== null && p.rabatt_eur !== undefined ? (
                 <Text style={styles.rabattLine}>
-                  Rabatt EUR {Number(p.rabatt_eur).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  Rabatt EUR{" "}
+                  {Number(p.rabatt_eur).toLocaleString("de-DE", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </Text>
-              )}
+              ) : null}
             </View>
           ))}
         </View>
 
-        <View style={styles.signatureBlock}>
+        {/* Unterschrift */}
+        <View style={styles.signatureBlock} wrap={false}>
           <View style={styles.signCell}>
-            {ls.unterschrift_ort || ls.unterschrift_datum ? (
+            <View style={styles.signSpacer}>
               <Text style={styles.signCity}>
                 {[ls.unterschrift_ort, formatDateDe(ls.unterschrift_datum)].filter(Boolean).join(", ")}
               </Text>
-            ) : null}
+            </View>
             <Text style={styles.signLine}>(Ort, Datum)</Text>
           </View>
           <View style={styles.signCell}>
-            {signatureUrl ? <Image src={signatureUrl} style={styles.signImage} /> : null}
+            <View style={styles.signSpacer}>
+              {signatureUrl ? <Image src={signatureUrl} style={styles.signImage} /> : null}
+            </View>
             <Text style={styles.signLine}>(Unterschrift)</Text>
           </View>
         </View>
 
-        <Text style={styles.footer}>
-          Bankverbindung: Die STEIERMÄRKISCHE Frojach | BLZ: 20815 | Kontonummer: 16200-001234{"\n"}
-          IBAN: AT83 2081 5162 0000 1234 | BIC: STSPAT2GXXX{"\n"}
-          Hinweis: Unsere Datenschutzerklärung ist jederzeit unter www.pachlinger.at abrufbar!
-        </Text>
+        {/* Footer mit Bankverbindung */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerLine}>
+            Bankverbindung: Die STEIERMÄRKISCHE Frojach | BLZ: 20815 | Kontonummer: 16200-001234
+          </Text>
+          <Text style={styles.footerLine}>IBAN: AT83 2081 5162 0000 1234 | BIC: STSPAT2GXXX</Text>
+          <Text style={styles.footerLine}>
+            Hinweis: Unsere Datenschutzerklärung ist jederzeit unter www.pachlinger.at abrufbar!
+          </Text>
+        </View>
       </Page>
     </Document>
   );
