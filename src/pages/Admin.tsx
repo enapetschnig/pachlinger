@@ -19,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Shield, UserCheck, Trash2, KeyRound, UserX, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { EmailSettingsCard } from "@/components/admin/EmailSettingsCard";
 
 type Role = "administrator" | "mitarbeiter";
 
@@ -182,6 +183,8 @@ export default function Admin() {
     <div className="min-h-screen bg-background">
       <PageHeader title="Mitarbeiterverwaltung" />
       <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-6">
+        <EmailSettingsCard />
+
         {pending.length > 0 && (
           <Card>
             <CardHeader>

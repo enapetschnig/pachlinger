@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Download, PenLine, ArrowLeft } from "lucide-react";
+import { Pencil, Trash2, Download, PenLine, ArrowLeft, Mail } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -27,6 +27,7 @@ import {
   statusLabel,
 } from "@/lib/lieferschein";
 import { SignatureCaptureDialog } from "@/components/lieferschein/SignatureCaptureDialog";
+import { SendEmailDialog } from "@/components/lieferschein/SendEmailDialog";
 
 export default function LieferscheinDetail() {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ export default function LieferscheinDetail() {
   const [isOwner, setIsOwner] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
+  const [sendEmailOpen, setSendEmailOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [creatorName, setCreatorName] = useState<string | null>(null);
 
@@ -137,6 +139,10 @@ export default function LieferscheinDetail() {
           <Button onClick={handleDownloadPdf} disabled={downloading}>
             <Download className="h-4 w-4 mr-2" />
             {downloading ? "Erstellt..." : "PDF herunterladen"}
+          </Button>
+          <Button variant="outline" onClick={() => setSendEmailOpen(true)}>
+            <Mail className="h-4 w-4 mr-2" />
+            Per E-Mail senden
           </Button>
           {canSign && (
             <Button variant="outline" onClick={() => setSignOpen(true)}>
@@ -334,6 +340,15 @@ export default function LieferscheinDetail() {
           defaultOrt={ls.empfaenger_ort ?? ""}
           onClose={() => setSignOpen(false)}
           onSigned={() => void load()}
+        />
+      )}
+
+      {ls && (
+        <SendEmailDialog
+          open={sendEmailOpen}
+          ls={ls}
+          onClose={() => setSendEmailOpen(false)}
+          onSent={() => void load()}
         />
       )}
     </div>

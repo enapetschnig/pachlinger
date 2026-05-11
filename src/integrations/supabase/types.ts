@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          auto_send_to_buero: boolean
+          buero_email: string | null
+          created_at: string
+          id: number
+          sender_email: string | null
+          sender_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_send_to_buero?: boolean
+          buero_email?: string | null
+          created_at?: string
+          id?: number
+          sender_email?: string | null
+          sender_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_send_to_buero?: boolean
+          buero_email?: string | null
+          created_at?: string
+          id?: number
+          sender_email?: string | null
+          sender_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       heartbeat: {
         Row: {
           id: number
