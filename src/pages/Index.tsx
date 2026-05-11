@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, LogOut, User as UserIcon, Info } from "lucide-react";
+import { FileText, Users, UsersRound, LogOut, User as UserIcon, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import {
@@ -180,7 +180,7 @@ export default function Index() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 max-w-3xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 max-w-4xl">
               <Card
                 className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
                 onClick={() => navigate("/lieferscheine")}
@@ -200,6 +200,26 @@ export default function Index() {
                   <Button className="w-full" size="sm">Öffnen</Button>
                 </CardContent>
               </Card>
+
+              {isAdmin && (
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
+                  onClick={() => navigate("/kunden")}
+                >
+                  <CardHeader className="space-y-2 pb-3">
+                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <UsersRound className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg sm:text-xl">Kunden</CardTitle>
+                    <CardDescription className="text-sm">
+                      Stammdaten verwalten & importieren
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full" size="sm" variant="outline">Öffnen</Button>
+                  </CardContent>
+                </Card>
+              )}
 
               {isAdmin && (
                 <Card

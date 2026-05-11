@@ -18,6 +18,7 @@ export interface Position {
 export interface Lieferschein {
   id: string;
   user_id: string | null;
+  kunde_id: string | null;
   jahr: number;
   lfd_nr: number;
   nummer: string;
@@ -46,6 +47,7 @@ export interface LieferscheinWithPositions extends Lieferschein {
 }
 
 export interface LieferscheinFormData {
+  kunde_id: string | null;
   lieferschein_datum: string;
   kunden_nummer: string;
   leistung: string;
@@ -115,6 +117,7 @@ export async function createLieferschein(form: LieferscheinFormData): Promise<st
     .from("lieferscheine")
     .insert({
       user_id: user.id,
+      kunde_id: form.kunde_id ?? null,
       lieferschein_datum: form.lieferschein_datum,
       kunden_nummer: emptyToNull(form.kunden_nummer),
       leistung: emptyToNull(form.leistung),
@@ -153,6 +156,7 @@ export async function updateLieferschein(id: string, form: LieferscheinFormData)
   const { error } = await supabase
     .from("lieferscheine")
     .update({
+      kunde_id: form.kunde_id ?? null,
       lieferschein_datum: form.lieferschein_datum,
       kunden_nummer: emptyToNull(form.kunden_nummer),
       leistung: emptyToNull(form.leistung),

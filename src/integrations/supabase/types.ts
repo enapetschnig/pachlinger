@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      heartbeat: {
+        Row: {
+          id: number
+          last_ping: string
+          ping_count: number
+        }
+        Insert: {
+          id?: number
+          last_ping?: string
+          ping_count?: number
+        }
+        Update: {
+          id?: number
+          last_ping?: string
+          ping_count?: number
+        }
+        Relationships: []
+      }
+      kunden: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          kunden_nummer: string | null
+          name: string
+          notizen: string | null
+          ort: string | null
+          plz: string | null
+          strasse: string | null
+          telefon: string | null
+          uid_nummer: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          kunden_nummer?: string | null
+          name: string
+          notizen?: string | null
+          ort?: string | null
+          plz?: string | null
+          strasse?: string | null
+          telefon?: string | null
+          uid_nummer?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          kunden_nummer?: string | null
+          name?: string
+          notizen?: string | null
+          ort?: string | null
+          plz?: string | null
+          strasse?: string | null
+          telefon?: string | null
+          uid_nummer?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lieferschein_positionen: {
         Row: {
           bezeichnung: string
@@ -69,6 +135,7 @@ export type Database = {
           empfaenger_uid: string | null
           id: string
           jahr: number
+          kunde_id: string | null
           kunden_nummer: string | null
           leistung: string | null
           lfd_nr: number
@@ -94,6 +161,7 @@ export type Database = {
           empfaenger_uid?: string | null
           id?: string
           jahr?: number
+          kunde_id?: string | null
           kunden_nummer?: string | null
           leistung?: string | null
           lfd_nr?: number
@@ -119,6 +187,7 @@ export type Database = {
           empfaenger_uid?: string | null
           id?: string
           jahr?: number
+          kunde_id?: string | null
           kunden_nummer?: string | null
           leistung?: string | null
           lfd_nr?: number
@@ -131,7 +200,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lieferscheine_kunde_id_fkey"
+            columns: ["kunde_id"]
+            isOneToOne: false
+            referencedRelation: "kunden"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -193,6 +270,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      heartbeat_tick: { Args: never; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
