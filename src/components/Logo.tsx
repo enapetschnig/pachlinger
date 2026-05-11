@@ -1,15 +1,21 @@
 interface LogoProps {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
+const heights: Record<NonNullable<LogoProps["size"]>, string> = {
+  sm: "h-8",
+  md: "h-10",
+  lg: "h-14",
+  xl: "h-20",
+};
+
 export function Logo({ size = "md", className = "" }: LogoProps) {
-  const cls =
-    size === "lg" ? "text-3xl" : size === "sm" ? "text-base" : "text-xl";
   return (
-    <span className={`font-extrabold tracking-tight leading-none ${cls} ${className}`}>
-      <span className="text-pachlinger-red">Pachlinger</span>
-      <span className="text-pachlinger-anthracite"> GmbH</span>
-    </span>
+    <img
+      src="/pachlinger-logo.png"
+      alt="Pachlinger GmbH"
+      className={`${heights[size]} w-auto object-contain ${className}`}
+    />
   );
 }

@@ -42,67 +42,9 @@ const styles = StyleSheet.create({
     width: "46%",
     alignItems: "flex-end",
   },
-  brandTaglineTop: {
-    fontFamily: "Helvetica-BoldOblique",
-    fontSize: 10,
-    color: ANTHRACITE,
-    textAlign: "right",
-  },
-  brandTaglineTop2: {
-    fontFamily: "Helvetica-BoldOblique",
-    fontSize: 9,
-    color: ANTHRACITE,
-    textAlign: "right",
-    marginBottom: 4,
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  brandPachlinger: {
-    fontFamily: "Helvetica-BoldOblique",
-    fontSize: 30,
-    color: PACHLINGER_RED,
-    letterSpacing: -0.5,
-  },
-  brandSuffix: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 16,
-    color: ANTHRACITE,
-    marginLeft: 4,
-  },
-  brandUndTeam: {
-    fontFamily: "Helvetica-Oblique",
-    fontSize: 12,
-    color: ANTHRACITE,
-    marginTop: 1,
-    marginBottom: 4,
-  },
-  // Pfeil-/Hotline-Bar unten am Logo
-  brandHotlineBar: {
-    flexDirection: "row",
-    alignItems: "stretch",
-  },
-  brandHotlineLeft: {
-    backgroundColor: PACHLINGER_RED,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-  },
-  brandHotlineLeftText: {
-    color: "#FFFFFF",
-    fontFamily: "Helvetica-Bold",
-    fontSize: 7,
-    letterSpacing: 0.2,
-  },
-  brandHotlineRight: {
-    backgroundColor: PACHLINGER_ORANGE,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-  },
-  brandHotlineRightText: {
-    color: "#FFFFFF",
-    fontFamily: "Helvetica-Bold",
-    fontSize: 8.5,
+  brandLogo: {
+    width: "100%",
+    objectFit: "contain",
   },
 
   // ----- Reihe 2: Empfänger (links) + Meta-Tabelle (rechts) -----
@@ -281,9 +223,10 @@ const styles = StyleSheet.create({
 interface PdfProps {
   ls: LieferscheinWithPositions;
   signatureUrl: string | null;
+  logoSrc?: string;
 }
 
-export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
+export function LieferscheinPdf({ ls, signatureUrl, logoSrc = "/pachlinger-logo.png" }: PdfProps) {
   return (
     <Document
       title={`Lieferschein ${ls.nummer}`}
@@ -304,21 +247,7 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
           </View>
 
           <View style={styles.brandBox}>
-            <Text style={styles.brandTaglineTop}>LÜFTUNG · ENTFEUCHTUNG · KLIMA</Text>
-            <Text style={styles.brandTaglineTop2}>WÄRMERÜCKGEWINNUNG · ARBEITSBÜHNEN</Text>
-            <View style={styles.brandRow}>
-              <Text style={styles.brandPachlinger}>Pachlinger</Text>
-              <Text style={styles.brandSuffix}>GmbH</Text>
-            </View>
-            <Text style={styles.brandUndTeam}>...und Team</Text>
-            <View style={styles.brandHotlineBar}>
-              <View style={styles.brandHotlineLeft}>
-                <Text style={styles.brandHotlineLeftText}>Arbeitsbühnenverein für Hochbau</Text>
-              </View>
-              <View style={styles.brandHotlineRight}>
-                <Text style={styles.brandHotlineRightText}>Lüftungshotline: (0664) 5246079</Text>
-              </View>
-            </View>
+            <Image src={logoSrc} style={styles.brandLogo} />
           </View>
         </View>
 
