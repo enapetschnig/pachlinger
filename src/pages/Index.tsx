@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, UsersRound, LogOut, User as UserIcon, Info } from "lucide-react";
+import { FileText, Users, UsersRound, LogOut, User as UserIcon, Info, UserPlus, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import {
@@ -29,6 +29,7 @@ export default function Index() {
   const [userName, setUserName] = useState("");
   const [isActive, setIsActive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
   const { handleRestartInstallGuide } = useOnboarding();
 
   const loadForUser = async (userId: string) => {
@@ -56,7 +57,20 @@ export default function Index() {
       setIsActive(false);
     }
 
-    setUserRole((roleData?.role as Role) ?? null);
+    const role = (roleData?.role as Role) ?? null;
+    setUserRole(role);
+
+    // Admin: Anzahl wartender Aktivierungen für Banner laden
+    if (role === "administrator") {
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", false);
+      setPendingCount(count ?? 0);
+    } else {
+      setPendingCount(0);
+    }
+
     setLoading(false);
   };
 
@@ -171,6 +185,29 @@ export default function Index() {
           </Card>
         ) : (
           <>
+            {isAdmin && pendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate("/admin")}
+                className="w-full text-left mb-4 sm:mb-6 rounded-lg border-2 border-pachlinger-orange bg-pachlinger-orange/10 hover:bg-pachlinger-orange/20 transition-colors p-3 sm:p-4 flex items-center gap-3 max-w-4xl"
+              >
+                <div className="h-10 w-10 rounded-full bg-pachlinger-orange flex items-center justify-center shrink-0">
+                  <UserPlus className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm sm:text-base">
+                    {pendingCount === 1
+                      ? "1 Mitarbeiter wartet auf Freischaltung"
+                      : `${pendingCount} Mitarbeiter warten auf Freischaltung`}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Jetzt freischalten und zur Mitarbeiterverwaltung wechseln.
+                  </p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+              </button>
+            )}
+
             <div className="mb-6 sm:mb-8">
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
                 {isAdmin ? "Admin Dashboard" : "Mein Dashboard"}

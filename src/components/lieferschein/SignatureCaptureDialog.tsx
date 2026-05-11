@@ -18,11 +18,19 @@ interface Props {
   open: boolean;
   lieferscheinId: string;
   defaultOrt?: string;
+  cancelLabel?: string;
   onClose: () => void;
   onSigned: () => void;
 }
 
-export function SignatureCaptureDialog({ open, lieferscheinId, defaultOrt, onClose, onSigned }: Props) {
+export function SignatureCaptureDialog({
+  open,
+  lieferscheinId,
+  defaultOrt,
+  cancelLabel = "Abbrechen",
+  onClose,
+  onSigned,
+}: Props) {
   const { toast } = useToast();
   const [signature, setSignature] = useState<string | null>(null);
   const [ort, setOrt] = useState(defaultOrt ?? "");
@@ -79,7 +87,7 @@ export function SignatureCaptureDialog({ open, lieferscheinId, defaultOrt, onClo
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={submitting}>
-            Abbrechen
+            {cancelLabel}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !signature}>
             {submitting ? "Speichert..." : "Unterschrift speichern"}

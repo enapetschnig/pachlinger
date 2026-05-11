@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import { SendEmailDialog } from "@/components/lieferschein/SendEmailDialog";
 export default function LieferscheinDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { toast } = useToast();
   const [ls, setLs] = useState<LieferscheinWithPositions | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,6 +94,18 @@ export default function LieferscheinDetail() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Wizard-Flow: nach Lieferschein-Erstellung wird mit state.openSignAfterCreate
+  // hierher navigiert -> SignatureCaptureDialog direkt öffnen.
+  useEffect(() => {
+    const state = location.state as { openSignAfterCreate?: boolean } | null;
+    if (state?.openSignAfterCreate) {
+      setSignOpen(true);
+      // History-State leeren, damit Reload nicht erneut triggert
+      window.history.replaceState({}, document.title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -338,8 +351,13 @@ export default function LieferscheinDetail() {
           open={signOpen}
           lieferscheinId={ls.id}
           defaultOrt={ls.empfaenger_ort ?? ""}
+          cancelLabel="Später unterschreiben"
           onClose={() => setSignOpen(false)}
-          onSigned={() => void load()}
+          onSigned={async () => {
+            await load();
+            // Direkt zum nächsten Schritt: E-Mail-Versand
+            setSendEmailOpen(true);
+          }}
         />
       )}
 

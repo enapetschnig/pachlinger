@@ -146,7 +146,7 @@ export default function LieferscheinForm({ mode }: Props) {
           title: "Lieferschein erstellt",
           description: kundeNew ? `Kunde „${data.empfaenger_name}" wurde neu angelegt.` : undefined,
         });
-        navigate(`/lieferscheine/${newId}`);
+        navigate(`/lieferscheine/${newId}`, { state: { openSignAfterCreate: true } });
       } else if (id) {
         await updateLieferschein(id, data);
         toast({
