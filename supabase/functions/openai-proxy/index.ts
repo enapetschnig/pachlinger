@@ -173,12 +173,55 @@ async function parseCustomersImage(base64DataUrl: string) {
   return out;
 }
 
+// Bekannte Whisper-Halluzinationen bei Stille / sehr kurzen Aufnahmen
+const HALLUCINATIONS = [
+  "untertitel der amara.org-community",
+  "untertitel der amara.org",
+  "untertitel im auftrag des zdf",
+  "untertitelung des zdf",
+  "untertitel von amara.org",
+  "untertitel von stephanie geiges",
+  "vielen dank fürs zuschauen",
+  "vielen dank fürs zusehen",
+  "vielen dank für ihre aufmerksamkeit",
+  "untertitelung aufgrund der amara.org-community",
+  "untertitelung im auftrag",
+  "tschüss und bis zum nächsten mal",
+  "bis zum nächsten mal",
+  "amara.org",
+];
+
+function isHallucination(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  if (lower === "") return true;
+  // Wenn der gesamte Text (oder Hauptteil) eine bekannte Halluzination ist
+  for (const pattern of HALLUCINATIONS) {
+    if (lower === pattern) return true;
+    if (lower.startsWith(pattern) && lower.length < pattern.length + 15) return true;
+    // Wenn Halluzination der einzige Satz ist (nach Komma/Punkt)
+    if (lower.split(/[.!?]/).map((s) => s.trim()).every((s) => s === "" || s === pattern)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function transcribe(audioBlob: Blob, language = "de") {
+  // Pachlinger-spezifisches Vokabular als Prompt — reduziert Halluzinationen
+  // und verbessert Erkennung technischer Begriffe.
+  const PROMPT =
+    "Pachlinger GmbH, Lüftung, Entfeuchtung, Klima, Wärmerückgewinnung, Arbeitsbühnen, " +
+    "Brandschutzklappe, BSK DN 250 manuell, BSK 250/250, Regiearbeiten, Arbeitszeit Partie, " +
+    "Gitter, An- und Abfahrt, Schotte, Stahl UK, Rigipsarbeiten, Elektriker, Maler, " +
+    "Bodenleger, Fliesenleger, Putzarbeiten, Lieferschein, Position, Stück, Stunden, Pauschale.";
+
   const fd = new FormData();
   fd.append("file", audioBlob, "audio.webm");
   fd.append("model", "whisper-1");
   fd.append("language", language);
   fd.append("response_format", "json");
+  fd.append("temperature", "0");
+  fd.append("prompt", PROMPT);
 
   const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -190,7 +233,11 @@ async function transcribe(audioBlob: Blob, language = "de") {
     throw new Error(`OpenAI transcribe failed: ${res.status} ${err}`);
   }
   const data = await res.json();
-  return { text: (data.text ?? "").trim() };
+  const raw = (data.text ?? "").trim();
+  if (isHallucination(raw)) {
+    return { text: "", hallucination: true };
+  }
+  return { text: raw };
 }
 
 Deno.serve(async (req: Request) => {

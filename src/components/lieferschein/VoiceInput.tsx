@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Mic, MicOff, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { improveBezeichnung, transcribeAudio } from "@/lib/openai";
+import { improveBezeichnung, transcribeAudio, TranscribeEmptyError } from "@/lib/openai";
+
+const MIN_RECORDING_MS = 700; // unter 0,7s ist typischerweise nur Klick/Tastenrauschen → ignorieren
 
 interface Props {
   value: string;
@@ -25,6 +27,7 @@ export function VoiceInput({ value, onChange, disabled }: Props) {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef<number>(0);
 
   const stopRecording = () => {
     recorderRef.current?.stop();
@@ -55,11 +58,24 @@ export function VoiceInput({ value, onChange, disabled }: Props) {
       };
       mr.onstop = async () => {
         setRecording(false);
+        const duration = Date.now() - startedAtRef.current;
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         if (blob.size === 0) return;
+
+        // Zu kurze Aufnahmen führen verlässlich zu Whisper-Halluzinationen
+        // ("Untertitel der Amara.org-Community" etc.) — gar nicht erst senden.
+        if (duration < MIN_RECORDING_MS) {
+          toast({
+            title: "Aufnahme zu kurz",
+            description: "Halte den Knopf mindestens 1 Sekunde — dann sprich deutlich los.",
+          });
+          return;
+        }
+
         setProcessing(true);
         try {
-          const text = await transcribeAudio(blob);
+          const result = await transcribeAudio(blob);
+          const text = result.text;
           if (!text.trim()) {
             toast({ title: "Keine Sprache erkannt", description: "Bitte erneut versuchen." });
             return;
@@ -71,13 +87,21 @@ export function VoiceInput({ value, onChange, disabled }: Props) {
           const sep = value.trim() === "" ? "" : " ";
           onChange(value + sep + finalText);
         } catch (e: any) {
-          toast({ variant: "destructive", title: "Fehler", description: e.message });
+          if (e instanceof TranscribeEmptyError) {
+            toast({
+              title: "Nichts Verständliches erkannt",
+              description: "Bitte nochmal näher am Mikro und deutlicher sprechen.",
+            });
+          } else {
+            toast({ variant: "destructive", title: "Fehler", description: e.message });
+          }
         } finally {
           setProcessing(false);
         }
       };
       mr.start();
       recorderRef.current = mr;
+      startedAtRef.current = Date.now();
       setRecording(true);
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);

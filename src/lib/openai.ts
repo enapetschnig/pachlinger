@@ -39,11 +39,23 @@ export async function parseCustomersImage(base64DataUrl: string): Promise<Parsed
   return data?.customers ?? [];
 }
 
+export interface TranscribeResult {
+  text: string;
+  hallucination?: boolean;
+}
+
 /**
  * Audio-Upload: kommt nicht über supabase.functions.invoke (kein FormData-Support),
  * deshalb direkt mit fetch + JWT.
+ * Wirft TranscribeEmptyError wenn nur Stille / Halluzination erkannt wurde.
  */
-export async function transcribeAudio(blob: Blob): Promise<string> {
+export class TranscribeEmptyError extends Error {
+  constructor(public reason: "hallucination" | "empty") {
+    super(reason === "hallucination" ? "Nichts Verständliches erkannt" : "Keine Sprache erkannt");
+  }
+}
+
+export async function transcribeAudio(blob: Blob): Promise<TranscribeResult> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   if (!token) throw new Error("Nicht angemeldet");
@@ -64,5 +76,12 @@ export async function transcribeAudio(blob: Blob): Promise<string> {
   }
   const data = await res.json();
   if (data?.error) throw new Error(data.error);
-  return data?.text ?? "";
+  const text = (data?.text ?? "").trim();
+  if (data?.hallucination) {
+    throw new TranscribeEmptyError("hallucination");
+  }
+  if (text === "") {
+    throw new TranscribeEmptyError("empty");
+  }
+  return { text, hallucination: !!data?.hallucination };
 }
