@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { pdf } from "@react-pdf/renderer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,12 +20,12 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LieferscheinWithPositions,
   deleteLieferschein,
+  downloadLieferscheinPdf,
   formatDateDe,
   getLieferschein,
   getSignatureUrl,
   statusLabel,
 } from "@/lib/lieferschein";
-import { LieferscheinPdf } from "@/components/lieferschein/LieferscheinPdf";
 import { SignatureCaptureDialog } from "@/components/lieferschein/SignatureCaptureDialog";
 
 export default function LieferscheinDetail() {
@@ -108,15 +107,7 @@ export default function LieferscheinDetail() {
     if (!ls) return;
     setDownloading(true);
     try {
-      const blob = await pdf(<LieferscheinPdf ls={ls} signatureUrl={signatureUrl} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${ls.nummer.replace("/", "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await downloadLieferscheinPdf(ls.id);
     } catch (e: any) {
       toast({ variant: "destructive", title: "PDF-Fehler", description: e.message });
     } finally {

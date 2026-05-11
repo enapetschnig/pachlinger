@@ -4,10 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FileText, ChevronRight } from "lucide-react";
+import { Plus, Search, FileText, ChevronRight, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/PageHeader";
-import { listLieferscheine, statusLabel, formatDateDe, Lieferschein } from "@/lib/lieferschein";
+import {
+  listLieferscheine,
+  statusLabel,
+  formatDateDe,
+  downloadLieferscheinPdf,
+  Lieferschein,
+} from "@/lib/lieferschein";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Lieferscheine() {
@@ -18,6 +24,20 @@ export default function Lieferscheine() {
   const [search, setSearch] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [creators, setCreators] = useState<Record<string, string>>({});
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (downloadingId) return;
+    setDownloadingId(id);
+    try {
+      await downloadLieferscheinPdf(id);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "PDF-Fehler", description: err.message });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -141,6 +161,20 @@ export default function Lieferscheine() {
                     <div className="text-right shrink-0">
                       <p className="text-sm font-medium">{formatDateDe(l.lieferschein_datum)}</p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 h-8 w-8"
+                      onClick={(e) => handleDownload(l.id, e)}
+                      disabled={downloadingId === l.id}
+                      title="PDF herunterladen"
+                    >
+                      {downloadingId === l.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>

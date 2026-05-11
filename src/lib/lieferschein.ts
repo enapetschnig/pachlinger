@@ -1,4 +1,7 @@
+import React from "react";
+import { pdf } from "@react-pdf/renderer";
 import { supabase } from "@/integrations/supabase/client";
+import { LieferscheinPdf } from "@/components/lieferschein/LieferscheinPdf";
 export { formatDateDe, statusLabel } from "./lieferschein-format";
 
 export type LieferscheinStatus = "entwurf" | "versendet" | "unterschrieben";
@@ -235,6 +238,32 @@ export async function getSignatureUrl(path: string): Promise<string | null> {
     .createSignedUrl(path, 60 * 60);
   if (error) return null;
   return data?.signedUrl ?? null;
+}
+
+/**
+ * Lädt den vollen Lieferschein, rendert das PDF und triggert einen Download.
+ * Wirft Fehler bei IO-Problemen — Aufrufer soll diese mit Toast abfangen.
+ */
+export async function downloadLieferscheinPdf(id: string): Promise<void> {
+  const ls = await getLieferschein(id);
+  if (!ls) throw new Error("Lieferschein nicht gefunden");
+
+  const signatureUrl = ls.unterschrift_image_url
+    ? await getSignatureUrl(ls.unterschrift_image_url)
+    : null;
+
+  const blob = await pdf(
+    React.createElement(LieferscheinPdf, { ls, signatureUrl }),
+  ).toBlob();
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${ls.nummer.replace("/", "_")}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function emptyToNull(v: string | null | undefined): string | null {
