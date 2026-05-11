@@ -5,9 +5,25 @@ import {
   View,
   StyleSheet,
   Image,
+  Font,
 } from "@react-pdf/renderer";
 import type { LieferscheinWithPositions } from "@/lib/lieferschein";
 import { formatDateDe } from "@/lib/lieferschein-format";
+
+// Arimo = Open-Source-Pendant zu Arial (metrisch identisch).
+// Wird absolut über origin geladen, damit der Aufruf aus jeder Route klappt.
+const fontOrigin =
+  typeof window !== "undefined" ? window.location.origin : "";
+
+Font.register({
+  family: "Arimo",
+  fonts: [
+    { src: `${fontOrigin}/fonts/arimo-regular.woff`, fontWeight: "normal", fontStyle: "normal" },
+    { src: `${fontOrigin}/fonts/arimo-bold.woff`, fontWeight: "bold", fontStyle: "normal" },
+    { src: `${fontOrigin}/fonts/arimo-italic.woff`, fontWeight: "normal", fontStyle: "italic" },
+    { src: `${fontOrigin}/fonts/arimo-bold-italic.woff`, fontWeight: "bold", fontStyle: "italic" },
+  ],
+});
 
 const PACHLINGER_RED = "#D9201E";
 const PACHLINGER_ORANGE = "#F26B1F";
@@ -22,7 +38,7 @@ const styles = StyleSheet.create({
     paddingLeft: 50,
     paddingRight: 50,
     fontSize: 10,
-    fontFamily: "Helvetica",
+    fontFamily: "Arimo",
     color: ANTHRACITE,
     lineHeight: 1.25,
   },
@@ -35,7 +51,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   senderBox: { width: "50%" },
-  senderName: { fontFamily: "Helvetica-Bold", fontSize: 10, marginBottom: 0 },
+  senderName: { fontFamily: "Arimo", fontWeight: "bold", fontSize: 10, marginBottom: 0 },
   senderLine: { fontSize: 9, lineHeight: 1.35 },
 
   brandBox: {
@@ -63,7 +79,7 @@ const styles = StyleSheet.create({
     paddingBottom: 1,
     marginBottom: 14,
   },
-  recipientText: { fontFamily: "Helvetica-Bold", fontSize: 13, lineHeight: 1.3 },
+  recipientText: { fontFamily: "Arimo", fontWeight: "bold", fontSize: 13, lineHeight: 1.3 },
 
   metaBox: { width: "46%" },
   metaTable: {
@@ -77,7 +93,7 @@ const styles = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   metaTitle: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
     fontSize: 14,
     color: ANTHRACITE,
   },
@@ -100,7 +116,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 6,
     fontSize: 10,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
   },
   pageOf: {
     fontSize: 8,
@@ -117,13 +133,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   betreffLabel: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
     fontSize: 14,
     textDecoration: "underline",
     marginRight: 18,
   },
   betreffText: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
     fontSize: 14,
   },
 
@@ -142,14 +158,14 @@ const styles = StyleSheet.create({
   colBezeichnung: { flex: 1 },
 
   angebotLine: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
     fontSize: 10,
     marginTop: 6,
     marginBottom: 4,
     paddingLeft: 80,
   },
   bauseitsHeader: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
     fontSize: 10,
     marginTop: 10,
     marginBottom: 2,
@@ -170,7 +186,7 @@ const styles = StyleSheet.create({
   positionPos: { width: 30, fontSize: 10, paddingHorizontal: 4 },
   positionMenge: { width: 50, fontSize: 10, paddingLeft: 4 },
   positionEinheit: { width: 50, fontSize: 10 },
-  positionBezeichnung: { flex: 1, fontSize: 10, fontFamily: "Helvetica-Bold" },
+  positionBezeichnung: { flex: 1, fontSize: 10, fontFamily: "Arimo", fontWeight: "bold" },
   rabattLine: {
     fontSize: 9,
     color: ANTHRACITE,
@@ -205,7 +221,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.8,
     borderTopColor: BORDER,
     paddingTop: 4,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Arimo", fontWeight: "bold",
     fontSize: 11,
     textAlign: "center",
   },
