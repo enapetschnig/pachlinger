@@ -12,15 +12,15 @@ import { formatDateDe } from "@/lib/lieferschein-format";
 const PACHLINGER_RED = "#D9201E";
 const PACHLINGER_ORANGE = "#F26B1F";
 const ANTHRACITE = "#1F2429";
-const BORDER = "#1F2429";
+const BORDER = "#000000";
 const MUTED = "#5F6770";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 24,
-    paddingBottom: 56,
-    paddingLeft: 40,
-    paddingRight: 40,
+    paddingTop: 28,
+    paddingBottom: 60,
+    paddingLeft: 50,
+    paddingRight: 50,
     fontSize: 10,
     fontFamily: "Helvetica",
     color: ANTHRACITE,
@@ -32,14 +32,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 10,
+    marginBottom: 18,
   },
-  senderBox: { width: "55%" },
-  senderLine: { fontSize: 9, lineHeight: 1.4 },
+  senderBox: { width: "50%" },
+  senderName: { fontFamily: "Helvetica-Bold", fontSize: 10, marginBottom: 0 },
+  senderLine: { fontSize: 9, lineHeight: 1.35 },
 
   brandBox: {
-    width: "42%",
+    width: "46%",
     alignItems: "flex-end",
+  },
+  brandTaglineTop: {
+    fontFamily: "Helvetica-BoldOblique",
+    fontSize: 10,
+    color: ANTHRACITE,
+    textAlign: "right",
+  },
+  brandTaglineTop2: {
+    fontFamily: "Helvetica-BoldOblique",
+    fontSize: 9,
+    color: ANTHRACITE,
+    textAlign: "right",
+    marginBottom: 4,
   },
   brandRow: {
     flexDirection: "row",
@@ -47,7 +61,7 @@ const styles = StyleSheet.create({
   },
   brandPachlinger: {
     fontFamily: "Helvetica-BoldOblique",
-    fontSize: 26,
+    fontSize: 30,
     color: PACHLINGER_RED,
     letterSpacing: -0.5,
   },
@@ -62,29 +76,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ANTHRACITE,
     marginTop: 1,
+    marginBottom: 4,
   },
-  brandTagBar: {
-    marginTop: 6,
+  // Pfeil-/Hotline-Bar unten am Logo
+  brandHotlineBar: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  brandHotlineLeft: {
     backgroundColor: PACHLINGER_RED,
+    paddingVertical: 3,
     paddingHorizontal: 6,
-    paddingVertical: 2,
   },
-  brandTagText: {
+  brandHotlineLeftText: {
     color: "#FFFFFF",
     fontFamily: "Helvetica-Bold",
-    fontSize: 7.5,
-    letterSpacing: 0.4,
+    fontSize: 7,
+    letterSpacing: 0.2,
   },
-  brandTagBar2: {
+  brandHotlineRight: {
     backgroundColor: PACHLINGER_ORANGE,
+    paddingVertical: 3,
     paddingHorizontal: 6,
-    paddingVertical: 2,
   },
-  brandHotline: {
-    marginTop: 4,
+  brandHotlineRightText: {
+    color: "#FFFFFF",
     fontFamily: "Helvetica-Bold",
-    fontSize: 9,
-    color: PACHLINGER_RED,
+    fontSize: 8.5,
   },
 
   // ----- Reihe 2: Empfänger (links) + Meta-Tabelle (rechts) -----
@@ -92,21 +110,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  recipientBox: { width: "55%", paddingTop: 8 },
+  recipientBox: { width: "50%", paddingTop: 6 },
   recipientAddrLine: {
-    fontSize: 8,
-    color: MUTED,
+    fontSize: 7.5,
+    color: ANTHRACITE,
     borderBottomWidth: 0.5,
-    borderBottomColor: MUTED,
+    borderBottomColor: ANTHRACITE,
     paddingBottom: 1,
-    marginBottom: 8,
+    marginBottom: 14,
   },
-  recipientName: { fontFamily: "Helvetica-Bold", fontSize: 13, marginBottom: 1 },
-  recipientText: { fontFamily: "Helvetica-Bold", fontSize: 13 },
+  recipientText: { fontFamily: "Helvetica-Bold", fontSize: 13, lineHeight: 1.3 },
 
-  metaBox: { width: "42%" },
+  metaBox: { width: "46%" },
   metaTable: {
     borderWidth: 0.7,
     borderColor: BORDER,
@@ -141,10 +158,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 6,
     fontSize: 10,
+    fontFamily: "Helvetica-Bold",
   },
   pageOf: {
     fontSize: 8,
-    color: MUTED,
+    color: ANTHRACITE,
     textAlign: "right",
     marginTop: 3,
   },
@@ -154,114 +172,110 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     marginTop: 6,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   betreffLabel: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 13,
+    fontSize: 14,
     textDecoration: "underline",
-    marginRight: 14,
+    marginRight: 18,
   },
   betreffText: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 13,
+    fontSize: 14,
   },
 
-  // ----- Spaltenkopf "Pos. Menge Einheit Bezeichnung" -----
+  // ----- Spaltenkopf-Box "Pos. Menge Einheit Bezeichnung" (dünner Rahmen, KEIN grauer Hintergrund) -----
   posHeaderRow: {
     flexDirection: "row",
-    borderTopWidth: 0.7,
-    borderBottomWidth: 0.7,
+    borderWidth: 0.5,
     borderColor: BORDER,
-    paddingVertical: 3,
-    backgroundColor: "#F2F2F2",
+    paddingVertical: 2,
   },
-  posHeaderCell: { fontSize: 8.5, fontFamily: "Helvetica-Bold", paddingHorizontal: 4 },
-  colPos: { width: 28 },
-  colMenge: { width: 50, textAlign: "right", paddingRight: 6 },
-  colEinheit: { width: 46 },
+  posHeaderCell: { fontSize: 8.5, paddingHorizontal: 4 },
+  posHeaderDivider: { borderRightWidth: 0.5, borderRightColor: BORDER },
+  colPos: { width: 30 },
+  colMenge: { width: 50 },
+  colEinheit: { width: 50 },
   colBezeichnung: { flex: 1 },
 
   angebotLine: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
     marginTop: 6,
-    marginBottom: 2,
-    paddingLeft: 70,
+    marginBottom: 4,
+    paddingLeft: 80,
   },
   bauseitsHeader: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
-    marginTop: 8,
-    marginBottom: 1,
-    paddingLeft: 70,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingLeft: 80,
   },
   bauseitsItem: {
     fontSize: 10,
-    paddingLeft: 86,
+    paddingLeft: 100,
+    lineHeight: 1.35,
   },
 
-  positionsBlock: { marginTop: 10 },
+  positionsBlock: { marginTop: 22 },
   positionRow: {
     flexDirection: "row",
-    paddingVertical: 2,
+    paddingVertical: 7,
     alignItems: "flex-start",
   },
-  positionPos: { width: 28, fontSize: 10, paddingHorizontal: 4 },
-  positionMenge: { width: 50, fontSize: 10, textAlign: "right", paddingRight: 6 },
-  positionEinheit: { width: 46, fontSize: 10, paddingLeft: 4 },
+  positionPos: { width: 30, fontSize: 10, paddingHorizontal: 4 },
+  positionMenge: { width: 50, fontSize: 10, paddingLeft: 4 },
+  positionEinheit: { width: 50, fontSize: 10 },
   positionBezeichnung: { flex: 1, fontSize: 10, fontFamily: "Helvetica-Bold" },
   rabattLine: {
     fontSize: 9,
-    color: MUTED,
-    paddingLeft: 132,
-    marginTop: 0,
-    marginBottom: 2,
+    color: ANTHRACITE,
+    paddingLeft: 150,
+    marginTop: 1,
   },
 
   // ----- Unterschrift -----
   signatureBlock: {
-    marginTop: 24,
+    marginTop: 36,
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 10,
   },
   signCell: { width: "44%", alignItems: "center" },
   signSpacer: {
-    height: 40,
+    height: 36,
     width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   signImage: {
-    height: 40,
-    marginBottom: 2,
+    height: 36,
     objectFit: "contain",
   },
   signCity: {
     fontSize: 10,
-    marginBottom: 2,
     textAlign: "center",
   },
   signLine: {
     width: "100%",
-    borderTopWidth: 0.7,
+    borderTopWidth: 0.8,
     borderTopColor: BORDER,
-    paddingTop: 3,
+    paddingTop: 4,
     fontFamily: "Helvetica-Bold",
-    fontSize: 10,
+    fontSize: 11,
     textAlign: "center",
   },
 
-  // ----- Footer -----
+  // ----- Footer (zentriert, ohne Border-Top) -----
   footer: {
     position: "absolute",
-    bottom: 22,
-    left: 40,
-    right: 40,
-    fontSize: 8,
-    color: MUTED,
-    textAlign: "center",
+    bottom: 24,
+    left: 50,
+    right: 50,
   },
-  footerLine: { fontSize: 8, color: MUTED, textAlign: "center" },
+  footerLine: { fontSize: 8.5, color: ANTHRACITE, textAlign: "center", lineHeight: 1.35 },
 });
 
 interface PdfProps {
@@ -280,7 +294,7 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
         {/* Reihe 1: Sender links · Logo rechts */}
         <View style={styles.topRow}>
           <View style={styles.senderBox}>
-            <Text style={styles.senderLine}>Pachlinger GmbH</Text>
+            <Text style={styles.senderName}>Pachlinger GmbH</Text>
             <Text style={styles.senderLine}>A-8833 Teufenbach-Katsch, Teuffenbachstr. 21</Text>
             <Text style={styles.senderLine}>Mobil: (0664) 52 46 079</Text>
             <Text style={styles.senderLine}>E-Mail: hannes@pachlinger.at</Text>
@@ -290,18 +304,21 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
           </View>
 
           <View style={styles.brandBox}>
+            <Text style={styles.brandTaglineTop}>LÜFTUNG · ENTFEUCHTUNG · KLIMA</Text>
+            <Text style={styles.brandTaglineTop2}>WÄRMERÜCKGEWINNUNG · ARBEITSBÜHNEN</Text>
             <View style={styles.brandRow}>
               <Text style={styles.brandPachlinger}>Pachlinger</Text>
               <Text style={styles.brandSuffix}>GmbH</Text>
             </View>
             <Text style={styles.brandUndTeam}>...und Team</Text>
-            <View style={styles.brandTagBar}>
-              <Text style={styles.brandTagText}>LÜFTUNG · ENTFEUCHTUNG · KLIMA</Text>
+            <View style={styles.brandHotlineBar}>
+              <View style={styles.brandHotlineLeft}>
+                <Text style={styles.brandHotlineLeftText}>Arbeitsbühnenverein für Hochbau</Text>
+              </View>
+              <View style={styles.brandHotlineRight}>
+                <Text style={styles.brandHotlineRightText}>Lüftungshotline: (0664) 5246079</Text>
+              </View>
             </View>
-            <View style={styles.brandTagBar2}>
-              <Text style={styles.brandTagText}>WÄRMERÜCKGEWINNUNG · ARBEITSBÜHNEN</Text>
-            </View>
-            <Text style={styles.brandHotline}>Lüftungshotline: (0664) 5246079</Text>
           </View>
         </View>
 
@@ -311,7 +328,7 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
             <Text style={styles.recipientAddrLine}>
               Pachlinger GmbH, Teuffenbachstr. 21, 8833 Teufenbach-Katsch
             </Text>
-            <Text style={styles.recipientName}>{ls.empfaenger_name}</Text>
+            <Text style={styles.recipientText}>{ls.empfaenger_name}</Text>
             {ls.empfaenger_strasse ? (
               <Text style={styles.recipientText}>{ls.empfaenger_strasse}</Text>
             ) : null}
@@ -379,15 +396,23 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
           </View>
         ) : null}
 
-        {/* Spaltenkopf */}
+        {/* Spaltenkopf (dünner Rahmen, kein grauer Hintergrund) */}
         <View style={styles.posHeaderRow}>
-          <Text style={[styles.posHeaderCell, styles.colPos]}>Pos.</Text>
-          <Text style={[styles.posHeaderCell, styles.colMenge]}>Menge</Text>
-          <Text style={[styles.posHeaderCell, styles.colEinheit]}>Einheit</Text>
-          <Text style={[styles.posHeaderCell, styles.colBezeichnung]}>Bezeichnung</Text>
+          <View style={[styles.colPos, styles.posHeaderDivider]}>
+            <Text style={styles.posHeaderCell}>Pos.</Text>
+          </View>
+          <View style={[styles.colMenge, styles.posHeaderDivider]}>
+            <Text style={styles.posHeaderCell}>Menge</Text>
+          </View>
+          <View style={[styles.colEinheit, styles.posHeaderDivider]}>
+            <Text style={styles.posHeaderCell}>Einheit</Text>
+          </View>
+          <View style={styles.colBezeichnung}>
+            <Text style={styles.posHeaderCell}>Bezeichnung</Text>
+          </View>
         </View>
 
-        {/* Angebot-Referenz (zwischen Header und Bauseits, wie im Original) */}
+        {/* Angebot-Referenz */}
         {ls.angebot_nr ? (
           <Text style={styles.angebotLine}>
             Angebot Nr.: {ls.angebot_nr}
@@ -407,32 +432,36 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
           </View>
         ) : null}
 
-        {/* Positionen */}
+        {/* Positionen — Rabatt-Zeile NUR wenn > 0 (Original zeigt 0,00 nicht) */}
         <View style={styles.positionsBlock}>
-          {ls.positionen.map((p) => (
-            <View key={p.id ?? p.pos_nr}>
-              <View style={styles.positionRow}>
-                <Text style={styles.positionPos}>{p.pos_nr}</Text>
-                <Text style={styles.positionMenge}>
-                  {Number(p.menge).toLocaleString("de-DE", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 3,
-                  })}
-                </Text>
-                <Text style={styles.positionEinheit}>{p.einheit}</Text>
-                <Text style={styles.positionBezeichnung}>{p.bezeichnung}</Text>
+          {ls.positionen.map((p) => {
+            const showRabatt =
+              p.rabatt_eur !== null && p.rabatt_eur !== undefined && Number(p.rabatt_eur) > 0;
+            return (
+              <View key={p.id ?? p.pos_nr}>
+                <View style={styles.positionRow}>
+                  <Text style={styles.positionPos}>{p.pos_nr}</Text>
+                  <Text style={styles.positionMenge}>
+                    {Number(p.menge).toLocaleString("de-DE", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 3,
+                    })}
+                  </Text>
+                  <Text style={styles.positionEinheit}>{p.einheit}</Text>
+                  <Text style={styles.positionBezeichnung}>{p.bezeichnung}</Text>
+                </View>
+                {showRabatt ? (
+                  <Text style={styles.rabattLine}>
+                    Rabatt EUR{" "}
+                    {Number(p.rabatt_eur).toLocaleString("de-DE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </Text>
+                ) : null}
               </View>
-              {p.rabatt_eur !== null && p.rabatt_eur !== undefined ? (
-                <Text style={styles.rabattLine}>
-                  Rabatt EUR{" "}
-                  {Number(p.rabatt_eur).toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </Text>
-              ) : null}
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* Unterschrift */}
@@ -453,7 +482,7 @@ export function LieferscheinPdf({ ls, signatureUrl }: PdfProps) {
           </View>
         </View>
 
-        {/* Footer mit Bankverbindung */}
+        {/* Footer ohne Border-Top */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerLine}>
             Bankverbindung: Die STEIERMÄRKISCHE Frojach | BLZ: 20815 | Kontonummer: 16200-001234
