@@ -12,28 +12,24 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Mail, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getAppSettings, updateAppSettings, AppSettings } from "@/lib/settings";
+import { getAppSettings, updateAppSettings } from "@/lib/settings";
+
+const SENDER_DISPLAY = "Pachlinger GmbH <pachlinger@handwerkapp.at>";
 
 export function EmailSettingsCard() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [buroEmail, setBuroEmail] = useState("");
   const [autoSend, setAutoSend] = useState(true);
-  const [senderEmail, setSenderEmail] = useState("");
-  const [senderName, setSenderName] = useState("Pachlinger GmbH");
 
   useEffect(() => {
     (async () => {
       try {
         const s = await getAppSettings();
-        setSettings(s);
         if (s) {
           setBuroEmail(s.buero_email ?? "");
           setAutoSend(s.auto_send_to_buero);
-          setSenderEmail(s.sender_email ?? "");
-          setSenderName(s.sender_name ?? "Pachlinger GmbH");
         }
       } catch (e: any) {
         toast({ variant: "destructive", title: "Fehler beim Laden", description: e.message });
@@ -46,13 +42,10 @@ export function EmailSettingsCard() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await updateAppSettings({
+      await updateAppSettings({
         buero_email: buroEmail,
         auto_send_to_buero: autoSend,
-        sender_email: senderEmail,
-        sender_name: senderName,
       });
-      setSettings(updated);
       toast({ title: "Einstellungen gespeichert" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -69,8 +62,7 @@ export function EmailSettingsCard() {
           E-Mail-Einstellungen
         </CardTitle>
         <CardDescription>
-          Wohin Lieferscheine als Kopie geschickt werden und welche Absender-Adresse
-          erscheint.
+          Wohin Lieferscheine als Kopie geschickt werden und wer als Reply-To erscheint.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -110,30 +102,8 @@ export function EmailSettingsCard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
-              <div className="space-y-2">
-                <Label htmlFor="sender-name">Absender-Name</Label>
-                <Input
-                  id="sender-name"
-                  placeholder="Pachlinger GmbH"
-                  value={senderName}
-                  onChange={(e) => setSenderName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sender-email">Absender-E-Mail (optional)</Label>
-                <Input
-                  id="sender-email"
-                  type="email"
-                  placeholder="lieferschein@pachlinger.at"
-                  value={senderEmail}
-                  onChange={(e) => setSenderEmail(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Nur möglich wenn die Domain bei Resend verifiziert ist.
-                  Leer lassen → Standard-Absender.
-                </p>
-              </div>
+            <div className="pt-2 border-t text-xs text-muted-foreground">
+              Absender ist fest: <span className="font-mono">{SENDER_DISPLAY}</span>
             </div>
 
             <Button onClick={handleSave} disabled={saving}>

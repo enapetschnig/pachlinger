@@ -73,17 +73,21 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Mindestens ein Empfänger erforderlich" }, 400);
     }
 
-    // App-Settings für Absender + Reply-To laden (mit service-role um RLS zu umgehen,
-    // damit auch Mitarbeiter senden können)
+    // Absender fest verdrahtet — Domain handwerkapp.at ist bei Resend verifiziert.
+    const SENDER_EMAIL = "pachlinger@handwerkapp.at";
+    const SENDER_NAME = "Pachlinger GmbH";
+
+    // Nur Büro-E-Mail aus app_settings (für Reply-To, falls kein Override).
+    // service-role-Client umgeht RLS, damit auch Mitarbeiter senden können.
     const admin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const { data: settings } = await admin
       .from("app_settings")
-      .select("sender_email, sender_name, buero_email")
+      .select("buero_email")
       .eq("id", 1)
       .maybeSingle();
 
-    const senderEmail = settings?.sender_email?.trim() || "onboarding@resend.dev";
-    const senderName = settings?.sender_name?.trim() || "Pachlinger GmbH";
+    const senderEmail = SENDER_EMAIL;
+    const senderName = SENDER_NAME;
     const replyTo = replyToOverride?.trim() || settings?.buero_email?.trim() || undefined;
 
     const allRecipients = [...to_kunde, ...to_buero].filter((e: string) => e && e.trim() !== "");
