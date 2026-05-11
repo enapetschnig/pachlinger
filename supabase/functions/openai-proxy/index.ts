@@ -302,6 +302,10 @@ Deno.serve(async (req: Request) => {
     if (action === "parse-customers") {
       const kind = body.kind;
       const content = (body.content ?? "").toString();
+      // Defensive Größenlimits — verhindert OOM und unkontrollierte OpenAI-Kosten
+      if (content.length > 15_000_000) {
+        return json({ error: "Eingabe zu groß (max 15 MB)" }, 413);
+      }
       if (kind === "image_base64") {
         const out = await parseCustomersImage(content);
         return json(out);

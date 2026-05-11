@@ -69,6 +69,11 @@ Deno.serve(async (req: Request) => {
     if (!pdf_base64 || !pdf_filename) {
       return json({ error: "pdf_base64 and pdf_filename required" }, 400);
     }
+    // Resend Attachment-Limit ist 40 MB. Wir limitieren defensiv auf 25 MB
+    // base64 (~ 18 MB Roh-PDF) — ein Pachlinger-Lieferschein ist ~10–80 KB.
+    if (pdf_base64.length > 25_000_000) {
+      return json({ error: "PDF zu groß (max 25 MB base64)" }, 413);
+    }
     if ((to_kunde.length ?? 0) === 0 && (to_buero.length ?? 0) === 0) {
       return json({ error: "Mindestens ein Empfänger erforderlich" }, 400);
     }
@@ -95,6 +100,15 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Keine gültigen E-Mail-Adressen" }, 400);
     }
 
+    // HTML-Escape gegen Injection durch User-Eingabe (customBody, senderName)
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
     const subject = subjectOverride?.trim() || `Lieferschein ${nummer ?? ""}`.trim();
 
     // Body aufbauen (HTML + Text)
@@ -103,9 +117,9 @@ Deno.serve(async (req: Request) => {
     const closing = `mit freundlichen Grüßen\n${senderName}`;
     const defaultMsg = `anbei finden Sie unseren Lieferschein${nummer ? ` ${nummer}` : ""} als PDF.`;
     const textBody = `${greeting}\n\n${intro ? intro + "\n\n" : ""}${defaultMsg}\n\n${closing}`;
-    const htmlBody = `<p>${greeting}</p>${
-      intro ? `<p>${intro.replace(/\n/g, "<br>")}</p>` : ""
-    }<p>${defaultMsg}</p><p>${closing.replace(/\n/g, "<br>")}</p>`;
+    const htmlBody = `<p>${escapeHtml(greeting)}</p>${
+      intro ? `<p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p>` : ""
+    }<p>${escapeHtml(defaultMsg)}</p><p>${escapeHtml(closing).replace(/\n/g, "<br>")}</p>`;
 
     const payload: any = {
       from: `${senderName} <${senderEmail}>`,

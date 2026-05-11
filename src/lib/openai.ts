@@ -75,10 +75,20 @@ export async function transcribeAudio(
   if (!token) throw new Error("Nicht angemeldet");
 
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-proxy`;
+  // Dateiname-Endung aus blob.type ableiten — Whisper liest die Endung
+  const typeToExt: Record<string, string> = {
+    "audio/webm": "webm",
+    "audio/mp4": "m4a",
+    "audio/aac": "m4a",
+    "audio/wav": "wav",
+    "audio/ogg": "ogg",
+  };
+  const baseType = (blob.type || "audio/webm").split(";")[0];
+  const ext = typeToExt[baseType] ?? "webm";
   const fd = new FormData();
   fd.append("action", "transcribe");
   fd.append("kind", kind);
-  fd.append("audio", blob, "audio.webm");
+  fd.append("audio", blob, `audio.${ext}`);
 
   const res = await fetch(url, {
     method: "POST",

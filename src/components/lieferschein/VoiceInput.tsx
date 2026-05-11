@@ -54,14 +54,30 @@ export function VoiceInput({ value, onChange, disabled, kind = "bezeichnung" }: 
       streamRef.current = stream;
       chunksRef.current = [];
 
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      // mimeType-Fallback: Safari/iOS unterstützt webm nicht — auf mp4/aac fallen
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/mp4;codecs=mp4a.40.2",
+        "audio/aac",
+      ];
+      const mimeType =
+        typeof MediaRecorder !== "undefined" && "isTypeSupported" in MediaRecorder
+          ? candidates.find((c) => MediaRecorder.isTypeSupported(c)) ?? ""
+          : "";
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       mr.onstop = async () => {
         setRecording(false);
         const duration = Date.now() - startedAtRef.current;
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        // Blob mit tatsächlich aufgenommenem mimeType — Whisper akzeptiert
+        // webm, mp4, m4a, wav, ogg, mp3.
+        const blob = new Blob(chunksRef.current, {
+          type: mr.mimeType || mimeType || "audio/webm",
+        });
         if (blob.size === 0) return;
 
         // Zu kurze Aufnahmen führen verlässlich zu Whisper-Halluzinationen

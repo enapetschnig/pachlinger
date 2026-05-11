@@ -173,24 +173,18 @@ export async function updateLieferschein(id: string, form: LieferscheinFormData)
     .eq("id", id);
   if (error) throw error;
 
-  const { error: delErr } = await supabase
-    .from("lieferschein_positionen")
-    .delete()
-    .eq("lieferschein_id", id);
-  if (delErr) throw delErr;
-
-  if (form.positionen.length > 0) {
-    const rows = form.positionen.map((p, idx) => ({
-      lieferschein_id: id,
-      pos_nr: idx + 1,
+  // Atomar: DELETE + INSERT der Positionen in einer Server-Transaktion.
+  // Falls eine Zeile Validation verletzt, wird die ganze Operation rolled back.
+  const { error: rpcErr } = await supabase.rpc("replace_lieferschein_positionen", {
+    _lieferschein_id: id,
+    _positionen: form.positionen.map((p) => ({
       menge: p.menge,
       einheit: p.einheit,
       bezeichnung: p.bezeichnung,
       rabatt_eur: p.rabatt_eur,
-    }));
-    const { error: insErr } = await supabase.from("lieferschein_positionen").insert(rows);
-    if (insErr) throw insErr;
-  }
+    })),
+  });
+  if (rpcErr) throw rpcErr;
 }
 
 export async function deleteLieferschein(id: string): Promise<void> {

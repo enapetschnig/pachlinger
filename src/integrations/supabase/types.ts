@@ -302,6 +302,10 @@ export type Database = {
       }
       heartbeat_tick: { Args: never; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
+      replace_lieferschein_positionen: {
+        Args: { _lieferschein_id: string; _positionen: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "administrator" | "mitarbeiter"
