@@ -35,7 +35,27 @@ async function getUserFromRequest(req: Request) {
   return user;
 }
 
-async function improveBezeichnung(text: string) {
+const IMPROVE_SYSTEM_PROMPTS: Record<string, string> = {
+  bezeichnung:
+    "Du bist Assistent für Pachlinger GmbH (Lüftung, Klima, Brandschutzklappen, Arbeitsbühnen). " +
+    "Bekommst eine Position-Bezeichnung eines Lieferscheins, oft aus Spracheingabe oder schnellem Tippen. " +
+    "Gib NUR die korrigierte Bezeichnung zurück (keine Erklärungen, kein Markdown, keine Anführungszeichen). " +
+    "Behalte Kurzform und Fachbegriffe bei. Beispiele: 'BSK DN 250 manuell', 'Regiearbeiten Arbeitszeit Partie', 'Gitter 250 / 250', 'An- / Abfahrt'. " +
+    "Korrigiere Rechtschreibung, normalisiere Einheiten, behalte Zahlen und Abkürzungen exakt bei. " +
+    "Schreibe Substantive groß. Falls Eingabe leer oder Unsinn ist, gib leeren String zurück.",
+  betreff:
+    "Du bist Assistent für Pachlinger GmbH (Lüftung, Klima, Brandschutzklappen, Arbeitsbühnen). " +
+    "Bekommst einen Betreff für einen Lieferschein, oft aus Spracheingabe. " +
+    "Gib NUR den korrigierten Betreff zurück (keine Erklärungen, kein Markdown, keine Anführungszeichen, kein abschließender Punkt). " +
+    "Beispiele für typische Betreffe: 'Sanierung Brandschutzklappen 2026', 'Wartung Lüftungsanlage Halle 3', " +
+    "'Montage RLT-Anlage Bürogebäude', 'Servicearbeiten Klimaanlage'. " +
+    "Korrigiere Rechtschreibung, schreibe Substantive groß, behalte Jahreszahlen und Eigennamen exakt bei. " +
+    "Fasse zu lange Eingaben sinngemäß auf einen kurzen, sachlichen Titel zusammen. " +
+    "Falls Eingabe leer oder Unsinn ist, gib leeren String zurück.",
+};
+
+async function improveText(text: string, kind: "bezeichnung" | "betreff") {
+  const systemPrompt = IMPROVE_SYSTEM_PROMPTS[kind] ?? IMPROVE_SYSTEM_PROMPTS.bezeichnung;
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -46,16 +66,7 @@ async function improveBezeichnung(text: string) {
       model: "gpt-4o-mini",
       temperature: 0.1,
       messages: [
-        {
-          role: "system",
-          content:
-            "Du bist Assistent für Pachlinger GmbH (Lüftung, Klima, Brandschutzklappen, Arbeitsbühnen). " +
-            "Bekommst eine Position-Bezeichnung eines Lieferscheins, oft aus Spracheingabe oder schnellem Tippen. " +
-            "Gib NUR die korrigierte Bezeichnung zurück (keine Erklärungen, kein Markdown, keine Anführungszeichen). " +
-            "Behalte Kurzform und Fachbegriffe bei. Beispiele: 'BSK DN 250 manuell', 'Regiearbeiten Arbeitszeit Partie', 'Gitter 250 / 250', 'An- / Abfahrt'. " +
-            "Korrigiere Rechtschreibung, normalisiere Einheiten, behalte Zahlen und Abkürzungen exakt bei. " +
-            "Schreibe Substantive groß. Falls Eingabe leer oder Unsinn ist, gib leeren String zurück.",
-        },
+        { role: "system", content: systemPrompt },
         { role: "user", content: text },
       ],
     }),
@@ -206,14 +217,23 @@ function isHallucination(text: string): boolean {
   return false;
 }
 
-async function transcribe(audioBlob: Blob, language = "de") {
-  // Pachlinger-spezifisches Vokabular als Prompt — reduziert Halluzinationen
-  // und verbessert Erkennung technischer Begriffe.
-  const PROMPT =
+const WHISPER_PROMPTS: Record<string, string> = {
+  bezeichnung:
     "Pachlinger GmbH, Lüftung, Entfeuchtung, Klima, Wärmerückgewinnung, Arbeitsbühnen, " +
     "Brandschutzklappe, BSK DN 250 manuell, BSK 250/250, Regiearbeiten, Arbeitszeit Partie, " +
     "Gitter, An- und Abfahrt, Schotte, Stahl UK, Rigipsarbeiten, Elektriker, Maler, " +
-    "Bodenleger, Fliesenleger, Putzarbeiten, Lieferschein, Position, Stück, Stunden, Pauschale.";
+    "Bodenleger, Fliesenleger, Putzarbeiten, Lieferschein, Position, Stück, Stunden, Pauschale.",
+  betreff:
+    "Pachlinger GmbH, Lieferschein, Betreff, Sanierung, Wartung, Montage, Service, " +
+    "Brandschutzklappen, Lüftungsanlage, Klimaanlage, RLT-Anlage, Entfeuchtung, " +
+    "Wärmerückgewinnung, Arbeitsbühne, Gebäudetechnik, Halle, Bürogebäude, Schulungszentrum, " +
+    "Neubau, Umbau, 2025, 2026.",
+};
+
+async function transcribe(audioBlob: Blob, language = "de", kind: "bezeichnung" | "betreff" = "bezeichnung") {
+  // Pachlinger-spezifisches Vokabular als Prompt — reduziert Halluzinationen
+  // und verbessert Erkennung technischer Begriffe.
+  const PROMPT = WHISPER_PROMPTS[kind] ?? WHISPER_PROMPTS.bezeichnung;
 
   const fd = new FormData();
   fd.append("file", audioBlob, "audio.webm");
@@ -258,7 +278,9 @@ Deno.serve(async (req: Request) => {
       if (action === "transcribe") {
         const file = fd.get("audio");
         if (!(file instanceof Blob)) return json({ error: "missing audio" }, 400);
-        const out = await transcribe(file);
+        const kindRaw = (fd.get("kind") ?? "bezeichnung").toString();
+        const kind: "bezeichnung" | "betreff" = kindRaw === "betreff" ? "betreff" : "bezeichnung";
+        const out = await transcribe(file, "de", kind);
         return json(out);
       }
       return json({ error: "unknown multipart action" }, 400);
@@ -268,10 +290,12 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const action = body.action;
 
-    if (action === "improve-bezeichnung") {
+    if (action === "improve-bezeichnung" || action === "improve-betreff") {
       const text = (body.text ?? "").toString().slice(0, 4000);
       if (!text.trim()) return json({ improved: "" });
-      const improved = await improveBezeichnung(text);
+      const kind: "bezeichnung" | "betreff" =
+        action === "improve-betreff" ? "betreff" : "bezeichnung";
+      const improved = await improveText(text, kind);
       return json({ improved });
     }
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Mic, MicOff, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { improveBezeichnung, transcribeAudio, TranscribeEmptyError } from "@/lib/openai";
+import { improveText, transcribeAudio, TranscribeEmptyError, VoiceKind } from "@/lib/openai";
 
 const MIN_RECORDING_MS = 700; // unter 0,7s ist typischerweise nur Klick/Tastenrauschen → ignorieren
 
@@ -10,6 +10,8 @@ interface Props {
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  /** Steuert Whisper-Prompt + GPT-Bereinigung. Default: 'bezeichnung'. */
+  kind?: VoiceKind;
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * - Mic startet/stoppt MediaRecorder; nach Stop wird Audio an Whisper geschickt, dann GPT-Bereinigung.
  * - Magic Wand verbessert nur den aktuellen Text ohne Audio.
  */
-export function VoiceInput({ value, onChange, disabled }: Props) {
+export function VoiceInput({ value, onChange, disabled, kind = "bezeichnung" }: Props) {
   const { toast } = useToast();
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -74,14 +76,14 @@ export function VoiceInput({ value, onChange, disabled }: Props) {
 
         setProcessing(true);
         try {
-          const result = await transcribeAudio(blob);
+          const result = await transcribeAudio(blob, kind);
           const text = result.text;
           if (!text.trim()) {
             toast({ title: "Keine Sprache erkannt", description: "Bitte erneut versuchen." });
             return;
           }
-          // Direkte Bereinigung via GPT
-          const improved = await improveBezeichnung(text);
+          // Direkte Bereinigung via GPT (kind-spezifischer Prompt)
+          const improved = await improveText(text, kind);
           const finalText = improved || text;
           // An bestehenden Text anhängen (mit Leerzeichen falls schon Inhalt da ist)
           const sep = value.trim() === "" ? "" : " ";
@@ -118,7 +120,7 @@ export function VoiceInput({ value, onChange, disabled }: Props) {
     if (improving || !value.trim()) return;
     setImproving(true);
     try {
-      const improved = await improveBezeichnung(value);
+      const improved = await improveText(value, kind);
       if (improved) onChange(improved);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });

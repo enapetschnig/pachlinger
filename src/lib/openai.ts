@@ -18,10 +18,21 @@ async function invokeFunction(body: any) {
   return data;
 }
 
+export type VoiceKind = "bezeichnung" | "betreff";
+
 export async function improveBezeichnung(text: string): Promise<string> {
+  return improveText(text, "bezeichnung");
+}
+
+export async function improveBetreff(text: string): Promise<string> {
+  return improveText(text, "betreff");
+}
+
+export async function improveText(text: string, kind: VoiceKind): Promise<string> {
   const t = (text ?? "").trim();
   if (!t) return "";
-  const data = await invokeFunction({ action: "improve-bezeichnung", text: t });
+  const action = kind === "betreff" ? "improve-betreff" : "improve-bezeichnung";
+  const data = await invokeFunction({ action, text: t });
   return data?.improved ?? "";
 }
 
@@ -55,7 +66,10 @@ export class TranscribeEmptyError extends Error {
   }
 }
 
-export async function transcribeAudio(blob: Blob): Promise<TranscribeResult> {
+export async function transcribeAudio(
+  blob: Blob,
+  kind: VoiceKind = "bezeichnung",
+): Promise<TranscribeResult> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   if (!token) throw new Error("Nicht angemeldet");
@@ -63,6 +77,7 @@ export async function transcribeAudio(blob: Blob): Promise<TranscribeResult> {
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-proxy`;
   const fd = new FormData();
   fd.append("action", "transcribe");
+  fd.append("kind", kind);
   fd.append("audio", blob, "audio.webm");
 
   const res = await fetch(url, {

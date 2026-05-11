@@ -303,8 +303,33 @@ export default function LieferscheinForm({ mode }: Props) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="betreff">Betreff</Label>
-                <Input id="betreff" {...register("betreff")} placeholder="z.B. Sanierung Brandschutzklappen 2026" />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="betreff">Betreff</Label>
+                  <Controller
+                    name="betreff"
+                    control={control}
+                    render={({ field }) => (
+                      <VoiceInput
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        kind="betreff"
+                      />
+                    )}
+                  />
+                </div>
+                <Controller
+                  name="betreff"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="betreff"
+                      placeholder="z.B. Sanierung Brandschutzklappen 2026"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
