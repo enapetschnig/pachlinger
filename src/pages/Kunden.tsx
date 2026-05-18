@@ -72,10 +72,6 @@ export default function Kunden() {
       if (!active) return;
       const adminCheck = roleRow?.role === "administrator";
       setIsAdmin(adminCheck);
-      if (!adminCheck) {
-        setLoading(false);
-        return;
-      }
       await load();
       if (active) setLoading(false);
     })();
@@ -100,21 +96,6 @@ export default function Kunden() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Lädt...</p>
-      </div>
-    );
-  }
-
-  if (isAdmin === false) {
-    return (
-      <div className="min-h-screen bg-background">
-        <PageHeader title="Kunden" />
-        <main className="container mx-auto px-4 py-8">
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Diese Seite ist nur für Administratoren zugänglich.
-            </CardContent>
-          </Card>
-        </main>
       </div>
     );
   }
@@ -144,14 +125,16 @@ export default function Kunden() {
               className="pl-9"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowImport(true)}
-            className="sm:w-auto"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Import mit KI
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => setShowImport(true)}
+              className="sm:w-auto"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Import mit KI
+            </Button>
+          )}
           <Button
             onClick={() => {
               setEditKunde(null);
@@ -183,10 +166,12 @@ export default function Kunden() {
                     <Plus className="h-4 w-4 mr-2" />
                     Ersten Kunden anlegen
                   </Button>
-                  <Button variant="outline" onClick={() => setShowImport(true)}>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Mit KI importieren
-                  </Button>
+                  {isAdmin && (
+                    <Button variant="outline" onClick={() => setShowImport(true)}>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Mit KI importieren
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -232,18 +217,20 @@ export default function Kunden() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDeleteId(k.id);
-                      }}
-                      title="Löschen"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteId(k.id);
+                        }}
+                        title="Löschen"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

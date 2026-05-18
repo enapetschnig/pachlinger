@@ -238,25 +238,23 @@ export default function Index() {
                 </CardContent>
               </Card>
 
-              {isAdmin && (
-                <Card
-                  className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
-                  onClick={() => navigate("/kunden")}
-                >
-                  <CardHeader className="space-y-2 pb-3">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <UsersRound className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg sm:text-xl">Kunden</CardTitle>
-                    <CardDescription className="text-sm">
-                      Stammdaten verwalten & importieren
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button className="w-full" size="sm" variant="outline">Öffnen</Button>
-                  </CardContent>
-                </Card>
-              )}
+              <Card
+                className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
+                onClick={() => navigate("/kunden")}
+              >
+                <CardHeader className="space-y-2 pb-3">
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <UsersRound className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg sm:text-xl">Kunden</CardTitle>
+                  <CardDescription className="text-sm">
+                    {isAdmin ? "Stammdaten verwalten & importieren" : "Kunden ansehen & anlegen"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button className="w-full" size="sm" variant="outline">Öffnen</Button>
+                </CardContent>
+              </Card>
 
               {isAdmin && (
                 <Card

@@ -89,9 +89,11 @@ test("3. Admin-Login + Dashboard mit Admin-spezifischen Karten", async ({ page }
   await expect(page.getByText("Benutzerverwaltung & Freischaltungen")).toBeVisible();
 });
 
-test("4. Mitarbeiter-Login + Dashboard ohne Admin-Karten", async ({ page }) => {
+test("4. Mitarbeiter-Login: Lieferscheine + Kunden-Cards, kein Mitarbeiter-Card", async ({ page }) => {
   await loginAs(page, MA_EMAIL, PASSWORD);
   await expect(page.getByRole("heading", { name: "Mein Dashboard" })).toBeVisible();
+  // Mitarbeiter sieht jetzt auch die Kunden-Card (mit eigener Description)
+  await expect(page.getByText("Kunden ansehen & anlegen")).toBeVisible();
   // Mitarbeiter sieht KEINE Admin-Beschreibungen
   await expect(page.getByText("Stammdaten verwalten & importieren")).toHaveCount(0);
   await expect(page.getByText("Benutzerverwaltung & Freischaltungen")).toHaveCount(0);
@@ -110,10 +112,44 @@ test("6. Mitarbeiter: /admin → 'Kein Zugriff'", async ({ page }) => {
   await expect(page.getByText(/Kein Zugriff/i)).toBeVisible({ timeout: 5000 });
 });
 
-test("7. Mitarbeiter: /kunden → Admin-Sperrtext", async ({ page }) => {
+test("7a. Mitarbeiter: /kunden ist offen, ohne Admin-Buttons", async ({ page }) => {
   await loginAs(page, MA_EMAIL, PASSWORD);
   await page.goto("/kunden");
-  await expect(page.getByText(/nur für Administratoren/i)).toBeVisible({ timeout: 5000 });
+  // Sperrtext darf NICHT mehr da sein
+  await expect(page.getByText(/nur für Administratoren/i)).toHaveCount(0);
+  // "Neuer Kunde" sichtbar
+  await expect(page.getByRole("button", { name: /Neuer Kunde/ }).first()).toBeVisible();
+  // KI-Import-Button NICHT sichtbar für Mitarbeiter
+  await expect(page.getByRole("button", { name: /Import mit KI/ })).toHaveCount(0);
+});
+
+test("7b. Mitarbeiter: kann Kunde anlegen", async ({ page }) => {
+  await loginAs(page, MA_EMAIL, PASSWORD);
+  await page.goto("/kunden");
+  await page.getByRole("button", { name: /Neuer Kunde/ }).first().click();
+  await page.locator("#kunde-name").waitFor({ state: "visible" });
+  await page.locator("#kunde-name").fill("E2E MA-Kunde");
+  await page.locator("#kunde-ort").fill("Graz");
+  await page.getByRole("button", { name: /^Speichern/ }).first().click();
+  await expect(page.getByText("E2E MA-Kunde").first()).toBeVisible({ timeout: 10_000 });
+});
+
+test("7c. Mitarbeiter: kann existierenden Kunde bearbeiten", async ({ page }) => {
+  await loginAs(page, MA_EMAIL, PASSWORD);
+  await page.goto("/kunden");
+  await page.getByText("E2E MA-Kunde").first().click();
+  await page.locator("#kunde-name").waitFor({ state: "visible" });
+  await page.locator("#kunde-name").fill("E2E MA-Kunde EDIT");
+  await page.getByRole("button", { name: /^Speichern/ }).first().click();
+  await expect(page.getByText("E2E MA-Kunde EDIT").first()).toBeVisible({ timeout: 10_000 });
+});
+
+test("7d. Mitarbeiter: sieht KEINE Trash-Buttons auf Kundenkarten", async ({ page }) => {
+  await loginAs(page, MA_EMAIL, PASSWORD);
+  await page.goto("/kunden");
+  // Bearbeiten-Button (Pencil) ist da, Löschen-Button (title=Löschen) nicht
+  await expect(page.locator('button[title="Bearbeiten"]').first()).toBeVisible();
+  await expect(page.locator('button[title="Löschen"]')).toHaveCount(0);
 });
 
 test("8. Admin: Kunde anlegen via Sheet", async ({ page }) => {
