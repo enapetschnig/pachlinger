@@ -33,7 +33,8 @@ export function SignatureCaptureDialog({
 }: Props) {
   const { toast } = useToast();
   const [signature, setSignature] = useState<string | null>(null);
-  const [ort, setOrt] = useState(defaultOrt ?? "");
+  // Pachlinger-Heimatort als sinnvoller Default — Mitarbeiter kann überschreiben
+  const [ort, setOrt] = useState(defaultOrt && defaultOrt.trim() !== "" ? defaultOrt : "Teufenbach");
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
   const [submitting, setSubmitting] = useState(false);
 

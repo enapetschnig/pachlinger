@@ -360,7 +360,6 @@ export default function LieferscheinDetail() {
         <SignatureCaptureDialog
           open={signOpen}
           lieferscheinId={ls.id}
-          defaultOrt={ls.empfaenger_ort ?? ""}
           cancelLabel="Später unterschreiben"
           onClose={() => setSignOpen(false)}
           onSigned={async () => {
@@ -389,8 +388,8 @@ export default function LieferscheinDetail() {
               unterschreiben lassen oder ohne Unterschrift versenden?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-0">
+            <AlertDialogCancel className="mt-0 sm:mt-0">Abbrechen</AlertDialogCancel>
             <Button
               variant="outline"
               onClick={() => {
