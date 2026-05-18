@@ -56,7 +56,8 @@ export function SendEmailDialog({ open, ls, onClose, onSent }: Props) {
           if (k?.email) mail = k.email;
         }
         setKundeEmail(mail);
-        setSendToKunde(mail !== "");
+        // Checkbox bewusst NICHT automatisch aktivieren — User muss zustimmen
+        setSendToKunde(false);
 
         setSubject(`Lieferschein ${ls.nummer}`);
         setBodyText("");

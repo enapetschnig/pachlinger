@@ -208,6 +208,44 @@ test("11. Admin sieht den Lieferschein des Mitarbeiters", async ({ page }) => {
   await expect(page.getByText("E2E Wizard Empfänger").first()).toBeVisible({ timeout: 10_000 });
 });
 
+test("13a. Admin erstellt Lieferschein und weist ihn dem Mitarbeiter zu", async ({ page }) => {
+  await loginAs(page, ADMIN_EMAIL, PASSWORD);
+  await page.goto("/lieferscheine/neu");
+
+  await page.locator("#empfaenger_name").fill("E2E Zuweisungs-Empfänger");
+  await page.locator("#lieferschein_datum").click();
+  await page.locator("textarea").first().fill("E2E Vorbereitung Büro");
+
+  // Zuweisen-Select erscheint für Admin
+  const assignSelect = page.locator("#assigned_to");
+  await expect(assignSelect).toBeVisible();
+  // PW Mitarbeiter aus der Liste auswählen (Name aus beforeAll)
+  await assignSelect.selectOption({ label: "PW Mitarbeiter" });
+
+  await page.getByRole("button", { name: /Lieferschein erstellen/ }).click();
+  await page.waitForURL(/\/lieferscheine\/[a-f0-9-]+/, { timeout: 15_000 });
+  // Sign-Dialog überspringen
+  await page.getByRole("button", { name: /Später unterschreiben/ }).click();
+  // Badge sichtbar mit Mitarbeiter-Name
+  await expect(page.getByText(/Zugewiesen an PW Mitarbeiter/)).toBeVisible({ timeout: 5000 });
+});
+
+test("13b. Mitarbeiter sieht Banner + Badge + kann zugewiesenen Lieferschein bearbeiten", async ({ page }) => {
+  await loginAs(page, MA_EMAIL, PASSWORD);
+  // Dashboard-Banner
+  await expect(page.getByText(/wurde dir zugewiesen|wurden dir zugewiesen/).first()).toBeVisible({ timeout: 10_000 });
+  await page.goto("/lieferscheine");
+  // Card mit zugewiesenem LS
+  await expect(page.getByText("E2E Zuweisungs-Empfänger").first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Mir zugewiesen").first()).toBeVisible();
+  // Detail öffnen
+  await page.getByText("E2E Zuweisungs-Empfänger").first().click();
+  await page.waitForURL(/\/lieferscheine\/[a-f0-9-]+/);
+  await expect(page.getByText(/Dir zugewiesen/)).toBeVisible();
+  // Bearbeiten-Button verfügbar
+  await expect(page.getByRole("button", { name: /Bearbeiten/ })).toBeVisible();
+});
+
 test("12. PDF-Download in der Liste funktioniert", async ({ page }) => {
   await loginAs(page, MA_EMAIL, PASSWORD);
   await page.goto("/lieferscheine");

@@ -39,6 +39,8 @@ export default function LieferscheinDetail() {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [isAssigned, setIsAssigned] = useState(false);
+  const [assigneeName, setAssigneeName] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [sendEmailOpen, setSendEmailOpen] = useState(false);
@@ -67,6 +69,7 @@ export default function LieferscheinDetail() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setIsOwner(data.user_id === user.id);
+        setIsAssigned(data.assigned_to === user.id);
         const { data: roleRow } = await supabase
           .from("user_roles")
           .select("role")
@@ -82,6 +85,18 @@ export default function LieferscheinDetail() {
             .eq("id", data.user_id)
             .maybeSingle();
           if (prof) setCreatorName(`${prof.vorname} ${prof.nachname}`.trim());
+        }
+        if (data.assigned_to) {
+          const { data: assigneeProf } = await supabase
+            .from("profiles")
+            .select("vorname, nachname")
+            .eq("id", data.assigned_to)
+            .maybeSingle();
+          if (assigneeProf) {
+            setAssigneeName(`${assigneeProf.vorname} ${assigneeProf.nachname}`.trim());
+          }
+        } else {
+          setAssigneeName(null);
         }
       }
     } catch (e: any) {
@@ -141,9 +156,10 @@ export default function LieferscheinDetail() {
 
   if (!ls) return null;
 
-  const canEdit = isAdmin || (isOwner && ls.status === "entwurf");
-  const canDelete = canEdit;
-  const canSign = (isOwner || isAdmin) && ls.status !== "unterschrieben";
+  const canEdit = isAdmin || ((isOwner || isAssigned) && ls.status === "entwurf");
+  // Löschen bleibt am Ersteller (oder Admin) — Mitarbeiter mit nur Zuweisung darf nicht löschen
+  const canDelete = isAdmin || (isOwner && ls.status === "entwurf");
+  const canSign = (isOwner || isAssigned || isAdmin) && ls.status !== "unterschrieben";
 
   return (
     <div className="min-h-screen bg-background">
@@ -195,9 +211,16 @@ export default function LieferscheinDetail() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-2xl font-mono text-primary">{ls.nummer}</CardTitle>
-              <Badge variant={ls.status === "entwurf" ? "outline" : ls.status === "unterschrieben" ? "default" : "secondary"}>
-                {statusLabel(ls.status)}
-              </Badge>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={ls.status === "entwurf" ? "outline" : ls.status === "unterschrieben" ? "default" : "secondary"}>
+                  {statusLabel(ls.status)}
+                </Badge>
+                {ls.assigned_to && (
+                  <Badge variant="secondary" className="bg-pachlinger-orange/15 text-pachlinger-anthracite border-pachlinger-orange/40">
+                    {isAssigned ? "Dir zugewiesen" : `Zugewiesen an ${assigneeName ?? "…"}`}
+                  </Badge>
+                )}
+              </div>
             </div>
             {creatorName && (
               <p className="text-sm text-muted-foreground">Erstellt von {creatorName}</p>

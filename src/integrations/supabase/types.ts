@@ -155,6 +155,8 @@ export type Database = {
         Row: {
           angebot_datum: string | null
           angebot_nr: string | null
+          assigned_at: string | null
+          assigned_to: string | null
           bauseits: string[]
           betreff: string | null
           created_at: string
@@ -183,6 +185,8 @@ export type Database = {
         Insert: {
           angebot_datum?: string | null
           angebot_nr?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
           bauseits?: string[]
           betreff?: string | null
           created_at?: string
@@ -211,6 +215,8 @@ export type Database = {
         Update: {
           angebot_datum?: string | null
           angebot_nr?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
           bauseits?: string[]
           betreff?: string | null
           created_at?: string

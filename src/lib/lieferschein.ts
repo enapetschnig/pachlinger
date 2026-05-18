@@ -19,6 +19,8 @@ export interface Lieferschein {
   id: string;
   user_id: string | null;
   kunde_id: string | null;
+  assigned_to: string | null;
+  assigned_at: string | null;
   jahr: number;
   lfd_nr: number;
   nummer: string;
@@ -50,6 +52,7 @@ export interface LieferscheinWithPositions extends Lieferschein {
 
 export interface LieferscheinFormData {
   kunde_id: string | null;
+  assigned_to: string | null;
   lieferschein_datum: string;
   kunden_nummer: string;
   leistung: string;
@@ -122,6 +125,8 @@ export async function createLieferschein(form: LieferscheinFormData): Promise<st
     .insert({
       user_id: user.id,
       kunde_id: form.kunde_id ?? null,
+      assigned_to: form.assigned_to ?? null,
+      assigned_at: form.assigned_to ? new Date().toISOString() : null,
       lieferschein_datum: form.lieferschein_datum,
       kunden_nummer: emptyToNull(form.kunden_nummer),
       leistung: emptyToNull(form.leistung),
@@ -159,10 +164,24 @@ export async function createLieferschein(form: LieferscheinFormData): Promise<st
 }
 
 export async function updateLieferschein(id: string, form: LieferscheinFormData): Promise<void> {
+  // assigned_at nur neu setzen wenn die Zuordnung sich geändert hat
+  const { data: existing } = await supabase
+    .from("lieferscheine")
+    .select("assigned_to")
+    .eq("id", id)
+    .maybeSingle();
+  const newAssigned = form.assigned_to ?? null;
+  const oldAssigned = existing?.assigned_to ?? null;
+  const assignmentChanged = newAssigned !== oldAssigned;
+
   const { error } = await supabase
     .from("lieferscheine")
     .update({
       kunde_id: form.kunde_id ?? null,
+      assigned_to: newAssigned,
+      ...(assignmentChanged
+        ? { assigned_at: newAssigned ? new Date().toISOString() : null }
+        : {}),
       lieferschein_datum: form.lieferschein_datum,
       kunden_nummer: emptyToNull(form.kunden_nummer),
       leistung: emptyToNull(form.leistung),
@@ -209,15 +228,9 @@ export async function uploadSignature(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Nicht angemeldet");
 
-  const { data: ls } = await supabase
-    .from("lieferscheine")
-    .select("user_id")
-    .eq("id", lieferscheinId)
-    .maybeSingle();
-  if (!ls) throw new Error("Lieferschein nicht gefunden");
-
-  const ownerId = ls.user_id ?? user.id;
-  const path = `${ownerId}/${lieferscheinId}.png`;
+  // Pfad basiert auf signing user (nicht owner) — damit auch zugewiesene
+  // Mitarbeiter via Storage-RLS in ihren eigenen Ordner schreiben dürfen.
+  const path = `${user.id}/${lieferscheinId}.png`;
 
   const blob = await (await fetch(signatureDataUrl)).blob();
 

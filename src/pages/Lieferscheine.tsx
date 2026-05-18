@@ -23,7 +23,9 @@ export default function Lieferscheine() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [creators, setCreators] = useState<Record<string, string>>({});
+  const [assignees, setAssignees] = useState<Record<string, string>>({});
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const handleDownload = async (id: string, e: React.MouseEvent) => {
@@ -54,25 +56,45 @@ export default function Lieferscheine() {
           .eq("user_id", user.id)
           .maybeSingle();
         const adminCheck = roleRow?.role === "administrator";
-        if (active) setIsAdmin(adminCheck);
+        if (active) {
+          setIsAdmin(adminCheck);
+          setCurrentUserId(user.id);
+        }
 
         const list = await listLieferscheine();
         if (!active) return;
         setItems(list);
 
-        if (adminCheck) {
-          const userIds = Array.from(new Set(list.map((l) => l.user_id).filter((u): u is string => !!u)));
-          if (userIds.length > 0) {
-            const { data: profs } = await supabase
-              .from("profiles")
-              .select("id, vorname, nachname")
-              .in("id", userIds);
-            const map: Record<string, string> = {};
-            (profs ?? []).forEach((p) => {
-              map[p.id] = `${p.vorname} ${p.nachname}`.trim();
-            });
-            if (active) setCreators(map);
-          }
+        // Sammeln aller relevanten User-IDs für Creator- und Assignee-Anzeige
+        const userIds = new Set<string>();
+        const assigneeIds = new Set<string>();
+        list.forEach((l) => {
+          if (l.user_id) userIds.add(l.user_id);
+          if (l.assigned_to) assigneeIds.add(l.assigned_to);
+        });
+
+        if (adminCheck && userIds.size > 0) {
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("id, vorname, nachname")
+            .in("id", Array.from(userIds));
+          const map: Record<string, string> = {};
+          (profs ?? []).forEach((p) => {
+            map[p.id] = `${p.vorname} ${p.nachname}`.trim();
+          });
+          if (active) setCreators(map);
+        }
+
+        if (assigneeIds.size > 0) {
+          const { data: assigneeProfs } = await supabase
+            .from("profiles")
+            .select("id, vorname, nachname")
+            .in("id", Array.from(assigneeIds));
+          const map: Record<string, string> = {};
+          (assigneeProfs ?? []).forEach((p) => {
+            map[p.id] = `${p.vorname} ${p.nachname}`.trim();
+          });
+          if (active) setAssignees(map);
         }
       } catch (e: any) {
         toast({ variant: "destructive", title: "Fehler beim Laden", description: e.message });
@@ -151,6 +173,15 @@ export default function Lieferscheine() {
                         <Badge variant={l.status === "entwurf" ? "outline" : l.status === "unterschrieben" ? "default" : "secondary"}>
                           {statusLabel(l.status)}
                         </Badge>
+                        {l.assigned_to && (
+                          l.assigned_to === currentUserId ? (
+                            <Badge variant="secondary" className="bg-pachlinger-orange/15 text-pachlinger-anthracite border-pachlinger-orange/40">
+                              Mir zugewiesen
+                            </Badge>
+                          ) : isAdmin && assignees[l.assigned_to] ? (
+                            <span className="text-xs text-muted-foreground">→ {assignees[l.assigned_to]}</span>
+                          ) : null
+                        )}
                         {isAdmin && l.user_id && creators[l.user_id] && (
                           <span className="text-xs text-muted-foreground">· {creators[l.user_id]}</span>
                         )}

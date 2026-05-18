@@ -19,8 +19,11 @@ import {
   updateLieferschein,
 } from "@/lib/lieferschein";
 import { ensureKundeForLieferschein, Kunde } from "@/lib/kunden";
+import { listActiveMitarbeiter, ActiveMitarbeiter } from "@/lib/profiles";
+import { supabase } from "@/integrations/supabase/client";
 import { EmpfaengerCombobox } from "@/components/lieferschein/EmpfaengerCombobox";
 import { VoiceInput } from "@/components/lieferschein/VoiceInput";
+import { UserCircle } from "lucide-react";
 
 interface Props {
   mode: "create" | "edit";
@@ -33,6 +36,8 @@ export default function LieferscheinForm({ mode }: Props) {
   const [loading, setLoading] = useState(mode === "edit");
   const [submitting, setSubmitting] = useState(false);
   const [showRabatt, setShowRabatt] = useState<Record<number, boolean>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [mitarbeiter, setMitarbeiter] = useState<ActiveMitarbeiter[]>([]);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -48,6 +53,7 @@ export default function LieferscheinForm({ mode }: Props) {
   } = useForm<LieferscheinFormData>({
     defaultValues: {
       kunde_id: null,
+      assigned_to: null,
       lieferschein_datum: today,
       kunden_nummer: "",
       leistung: "",
@@ -69,6 +75,34 @@ export default function LieferscheinForm({ mode }: Props) {
   const bauseitsField = useFieldArray({ control, name: "bauseits" });
   const positionenField = useFieldArray({ control, name: "positionen" });
 
+  // Admin-Check + Mitarbeiter-Liste laden (für Zuweisen-Dropdown)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!active) return;
+      const adminCheck = roleRow?.role === "administrator";
+      setIsAdmin(adminCheck);
+      if (adminCheck) {
+        try {
+          const list = await listActiveMitarbeiter();
+          if (active) setMitarbeiter(list);
+        } catch {
+          // ignore — Dropdown bleibt leer, das Form funktioniert trotzdem
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (mode === "edit" && id) {
       (async () => {
@@ -81,6 +115,7 @@ export default function LieferscheinForm({ mode }: Props) {
           }
           reset({
             kunde_id: ls.kunde_id ?? null,
+            assigned_to: ls.assigned_to ?? null,
             lieferschein_datum: ls.lieferschein_datum,
             kunden_nummer: ls.kunden_nummer ?? "",
             leistung: ls.leistung ?? "",
@@ -325,6 +360,50 @@ export default function LieferscheinForm({ mode }: Props) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Zuweisen (nur Admin) */}
+          {isAdmin && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <UserCircle className="h-5 w-5 text-primary" />
+                  Mitarbeiter zuweisen
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label htmlFor="assigned_to">
+                    Wer ist verantwortlich? (optional)
+                  </Label>
+                  <Controller
+                    name="assigned_to"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        id="assigned_to"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? null : e.target.value)
+                        }
+                      >
+                        <option value="">— niemandem zugewiesen —</option>
+                        {mitarbeiter.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.vorname} {m.nachname}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Die zugewiesene Person sieht den Lieferschein auf dem Dashboard und kann
+                    ihn bearbeiten, unterschreiben und versenden.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Betreff & Angebot */}
           <Card>
