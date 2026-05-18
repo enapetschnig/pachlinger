@@ -158,10 +158,12 @@ export type Database = {
           bauseits: string[]
           betreff: string | null
           created_at: string
+          empfaenger_email: string | null
           empfaenger_name: string
           empfaenger_ort: string | null
           empfaenger_plz: string | null
           empfaenger_strasse: string | null
+          empfaenger_telefon: string | null
           empfaenger_uid: string | null
           id: string
           jahr: number
@@ -184,10 +186,12 @@ export type Database = {
           bauseits?: string[]
           betreff?: string | null
           created_at?: string
+          empfaenger_email?: string | null
           empfaenger_name: string
           empfaenger_ort?: string | null
           empfaenger_plz?: string | null
           empfaenger_strasse?: string | null
+          empfaenger_telefon?: string | null
           empfaenger_uid?: string | null
           id?: string
           jahr?: number
@@ -210,10 +214,12 @@ export type Database = {
           bauseits?: string[]
           betreff?: string | null
           created_at?: string
+          empfaenger_email?: string | null
           empfaenger_name?: string
           empfaenger_ort?: string | null
           empfaenger_plz?: string | null
           empfaenger_strasse?: string | null
+          empfaenger_telefon?: string | null
           empfaenger_uid?: string | null
           id?: string
           jahr?: number

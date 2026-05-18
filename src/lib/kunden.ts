@@ -144,6 +144,8 @@ export async function ensureKundeForLieferschein(opts: {
   ort?: string | null;
   kunden_nummer?: string | null;
   uid_nummer?: string | null;
+  email?: string | null;
+  telefon?: string | null;
 }): Promise<{ kunde_id: string | null; created: boolean }> {
   if (opts.kunde_id) return { kunde_id: opts.kunde_id, created: false };
 
@@ -166,6 +168,8 @@ export async function ensureKundeForLieferschein(opts: {
     ort: opts.ort,
     kunden_nummer: opts.kunden_nummer,
     uid_nummer: opts.uid_nummer,
+    email: opts.email,
+    telefon: opts.telefon,
   });
   return { kunde_id: k.id, created: true };
 }

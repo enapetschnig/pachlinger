@@ -47,9 +47,11 @@ export function SendEmailDialog({ open, ls, onClose, onSent }: Props) {
         setSettings(s);
         setSendToBuero(!!s?.auto_send_to_buero && !!s?.buero_email);
 
-        // Kunden-E-Mail vorbefüllen
-        let mail = "";
-        if (ls.kunde_id) {
+        // E-Mail vorbefüllen: zuerst Snapshot aus dem Lieferschein (verlässlich
+        // auch wenn der verknüpfte Kunde später geändert wurde), sonst aus dem
+        // verknüpften Kunden als Fallback.
+        let mail = (ls.empfaenger_email ?? "").trim();
+        if (!mail && ls.kunde_id) {
           const k = await getKunde(ls.kunde_id);
           if (k?.email) mail = k.email;
         }

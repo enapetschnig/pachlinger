@@ -30,6 +30,8 @@ export interface Lieferschein {
   empfaenger_strasse: string | null;
   empfaenger_plz: string | null;
   empfaenger_ort: string | null;
+  empfaenger_email: string | null;
+  empfaenger_telefon: string | null;
   betreff: string | null;
   angebot_nr: string | null;
   angebot_datum: string | null;
@@ -56,6 +58,8 @@ export interface LieferscheinFormData {
   empfaenger_strasse: string;
   empfaenger_plz: string;
   empfaenger_ort: string;
+  empfaenger_email: string;
+  empfaenger_telefon: string;
   betreff: string;
   angebot_nr: string;
   angebot_datum: string;
@@ -126,6 +130,8 @@ export async function createLieferschein(form: LieferscheinFormData): Promise<st
       empfaenger_strasse: emptyToNull(form.empfaenger_strasse),
       empfaenger_plz: emptyToNull(form.empfaenger_plz),
       empfaenger_ort: emptyToNull(form.empfaenger_ort),
+      empfaenger_email: emptyToNull(form.empfaenger_email),
+      empfaenger_telefon: emptyToNull(form.empfaenger_telefon),
       betreff: emptyToNull(form.betreff),
       angebot_nr: emptyToNull(form.angebot_nr),
       angebot_datum: emptyToNull(form.angebot_datum),
@@ -165,6 +171,8 @@ export async function updateLieferschein(id: string, form: LieferscheinFormData)
       empfaenger_strasse: emptyToNull(form.empfaenger_strasse),
       empfaenger_plz: emptyToNull(form.empfaenger_plz),
       empfaenger_ort: emptyToNull(form.empfaenger_ort),
+      empfaenger_email: emptyToNull(form.empfaenger_email),
+      empfaenger_telefon: emptyToNull(form.empfaenger_telefon),
       betreff: emptyToNull(form.betreff),
       angebot_nr: emptyToNull(form.angebot_nr),
       angebot_datum: emptyToNull(form.angebot_datum),

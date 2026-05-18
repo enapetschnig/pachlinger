@@ -56,6 +56,8 @@ export default function LieferscheinForm({ mode }: Props) {
       empfaenger_strasse: "",
       empfaenger_plz: "",
       empfaenger_ort: "",
+      empfaenger_email: "",
+      empfaenger_telefon: "",
       betreff: "",
       angebot_nr: "",
       angebot_datum: "",
@@ -87,6 +89,8 @@ export default function LieferscheinForm({ mode }: Props) {
             empfaenger_strasse: ls.empfaenger_strasse ?? "",
             empfaenger_plz: ls.empfaenger_plz ?? "",
             empfaenger_ort: ls.empfaenger_ort ?? "",
+            empfaenger_email: ls.empfaenger_email ?? "",
+            empfaenger_telefon: ls.empfaenger_telefon ?? "",
             betreff: ls.betreff ?? "",
             angebot_nr: ls.angebot_nr ?? "",
             angebot_datum: ls.angebot_datum ?? "",
@@ -132,6 +136,8 @@ export default function LieferscheinForm({ mode }: Props) {
           ort: data.empfaenger_ort,
           kunden_nummer: data.kunden_nummer,
           uid_nummer: data.empfaenger_uid,
+          email: data.empfaenger_email,
+          telefon: data.empfaenger_telefon,
         });
         data.kunde_id = r.kunde_id;
         kundeNew = r.created;
@@ -175,6 +181,8 @@ export default function LieferscheinForm({ mode }: Props) {
     setValue("empfaenger_ort", k.ort ?? "");
     setValue("kunden_nummer", k.kunden_nummer ?? "");
     setValue("empfaenger_uid", k.uid_nummer ?? "");
+    setValue("empfaenger_email", k.email ?? "");
+    setValue("empfaenger_telefon", k.telefon ?? "");
   };
 
   const handleClearKunde = () => {
@@ -291,6 +299,28 @@ export default function LieferscheinForm({ mode }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="empfaenger_uid">UID-Nr.</Label>
                   <Input id="empfaenger_uid" {...register("empfaenger_uid")} placeholder="ATU…" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="empfaenger_email">E-Mail</Label>
+                  <Input
+                    id="empfaenger_email"
+                    type="email"
+                    autoComplete="email"
+                    {...register("empfaenger_email")}
+                    placeholder="kontakt@firma.at"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="empfaenger_telefon">Telefon</Label>
+                  <Input
+                    id="empfaenger_telefon"
+                    type="tel"
+                    autoComplete="tel"
+                    {...register("empfaenger_telefon")}
+                    placeholder="+43 …"
+                  />
                 </div>
               </div>
             </CardContent>
