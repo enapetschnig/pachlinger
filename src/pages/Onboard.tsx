@@ -26,9 +26,39 @@ export default function Onboard() {
   const [step, setStep] = useState<"form" | "otp">("form");
   const [requesting, setRequesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [resolvingToken, setResolvingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
-  // Phone aus URL-Param vorbefüllen (E.164)
+  // Token bevorzugen — sicherer/sauberer Link aus SMS
   useEffect(() => {
+    const token = params.get("t");
+    if (token) {
+      setResolvingToken(true);
+      (async () => {
+        try {
+          const { data, error } = await supabase.rpc("resolve_phone_invite", {
+            _token: token,
+          });
+          if (error) throw error;
+          const row = Array.isArray(data) ? data[0] : data;
+          if (!row?.phone) {
+            setTokenError(
+              "Einladung ungültig oder bereits verwendet. Bitte den Admin um eine neue Einladung bitten.",
+            );
+            return;
+          }
+          setPhone(row.phone);
+          if (row.vorname) setVorname(row.vorname);
+          if (row.nachname) setNachname(row.nachname);
+        } catch (e: any) {
+          setTokenError(e.message ?? "Einladung konnte nicht geladen werden.");
+        } finally {
+          setResolvingToken(false);
+        }
+      })();
+      return;
+    }
+    // Fallback: Phone direkt aus URL (Legacy-Links)
     const p = params.get("p");
     if (p) {
       const norm = normalizeAtPhone(p);
@@ -124,7 +154,19 @@ export default function Onboard() {
           <CardDescription>Mitarbeiter-Registrierung</CardDescription>
         </CardHeader>
         <CardContent>
-          {step === "form" ? (
+          {resolvingToken ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Einladung wird geladen…
+            </div>
+          ) : tokenError ? (
+            <div className="space-y-3 py-4">
+              <p className="text-sm text-destructive font-medium">{tokenError}</p>
+              <p className="text-xs text-muted-foreground">
+                Bitte beim Pachlinger-Büro melden — du brauchst eine neue Einladung.
+              </p>
+            </div>
+          ) : step === "form" ? (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">

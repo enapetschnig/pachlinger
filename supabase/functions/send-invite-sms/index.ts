@@ -60,27 +60,35 @@ async function sendOneInvite(
     return { phone: invite.phone, ok: false, error: "Ungültiges Telefonformat" };
   }
 
-  // UPSERT phone_invite (existiert vielleicht schon — wir setzen used_at zurück
-  // damit der User sich neu registrieren kann)
-  const { error: upsertErr } = await admin.from("phone_invites").upsert(
-    {
-      phone,
-      created_by: creatorId,
-      vorname: invite.vorname ?? null,
-      nachname: invite.nachname ?? null,
-      used_at: null,
-    },
-    { onConflict: "phone" },
-  );
-  if (upsertErr) {
-    return { phone, ok: false, error: `DB: ${upsertErr.message}` };
+  // UPSERT phone_invite + Token (re)generieren beim Re-Invite.
+  // Damit ist der alte Token (falls geleakt) ungültig und der User klickt
+  // immer auf den frischesten Link.
+  const newToken = crypto.randomUUID();
+  const { data: upserted, error: upsertErr } = await admin
+    .from("phone_invites")
+    .upsert(
+      {
+        phone,
+        created_by: creatorId,
+        vorname: invite.vorname ?? null,
+        nachname: invite.nachname ?? null,
+        used_at: null,
+        token: newToken,
+      },
+      { onConflict: "phone" },
+    )
+    .select("token")
+    .single();
+  if (upsertErr || !upserted?.token) {
+    return { phone, ok: false, error: `DB: ${upsertErr?.message ?? "unknown"}` };
   }
 
-  // Twilio SMS
+  // SMS-Link verwendet Token statt Phone — sauberer URL ohne '+' und mit
+  // bereits hinterlegten Daten (Name) zum Vorausfüllen im Onboard-Form.
   const greet = invite.vorname?.trim() ? ` ${invite.vorname.trim()}` : "";
   const body =
     `Hallo${greet}! Du wurdest zur Pachlinger-Lieferschein-App eingeladen. ` +
-    `Bitte registriere dich hier: ${appUrl}/onboard?p=${encodeURIComponent(phone)}`;
+    `Bitte registriere dich hier: ${appUrl}/onboard?t=${upserted.token}`;
 
   const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
   const form = new URLSearchParams();

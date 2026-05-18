@@ -258,6 +258,7 @@ export type Database = {
           created_by: string | null
           nachname: string | null
           phone: string
+          token: string
           used_at: string | null
           vorname: string | null
         }
@@ -266,6 +267,7 @@ export type Database = {
           created_by?: string | null
           nachname?: string | null
           phone: string
+          token?: string
           used_at?: string | null
           vorname?: string | null
         }
@@ -274,6 +276,7 @@ export type Database = {
           created_by?: string | null
           nachname?: string | null
           phone?: string
+          token?: string
           used_at?: string | null
           vorname?: string | null
         }
@@ -344,6 +347,14 @@ export type Database = {
       replace_lieferschein_positionen: {
         Args: { _lieferschein_id: string; _positionen: Json }
         Returns: undefined
+      }
+      resolve_phone_invite: {
+        Args: { _token: string }
+        Returns: {
+          nachname: string
+          phone: string
+          vorname: string
+        }[]
       }
     }
     Enums: {
