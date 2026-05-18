@@ -42,6 +42,7 @@ export default function LieferscheinDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [sendEmailOpen, setSendEmailOpen] = useState(false);
+  const [unsignedConfirmOpen, setUnsignedConfirmOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [creatorName, setCreatorName] = useState<string | null>(null);
 
@@ -153,7 +154,16 @@ export default function LieferscheinDetail() {
             <Download className="h-4 w-4 mr-2" />
             {downloading ? "Erstellt..." : "PDF herunterladen"}
           </Button>
-          <Button variant="outline" onClick={() => setSendEmailOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (ls.status === "unterschrieben") {
+                setSendEmailOpen(true);
+              } else {
+                setUnsignedConfirmOpen(true);
+              }
+            }}
+          >
             <Mail className="h-4 w-4 mr-2" />
             Per E-Mail senden
           </Button>
@@ -369,6 +379,38 @@ export default function LieferscheinDetail() {
           onSent={() => void load()}
         />
       )}
+
+      <AlertDialog open={unsignedConfirmOpen} onOpenChange={setUnsignedConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Noch keine Unterschrift</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dieser Lieferschein wurde noch nicht unterschrieben. Möchtest du ihn jetzt
+              unterschreiben lassen oder ohne Unterschrift versenden?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnsignedConfirmOpen(false);
+                setSendEmailOpen(true);
+              }}
+            >
+              Ohne Unterschrift senden
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                setUnsignedConfirmOpen(false);
+                setSignOpen(true);
+              }}
+            >
+              Jetzt unterschreiben
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
