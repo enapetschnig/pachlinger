@@ -19,7 +19,7 @@ export interface Lieferschein {
   id: string;
   user_id: string | null;
   kunde_id: string | null;
-  assigned_to: string | null;
+  assigned_to: string[];
   assigned_at: string | null;
   jahr: number;
   lfd_nr: number;
@@ -52,7 +52,7 @@ export interface LieferscheinWithPositions extends Lieferschein {
 
 export interface LieferscheinFormData {
   kunde_id: string | null;
-  assigned_to: string | null;
+  assigned_to: string[];
   lieferschein_datum: string;
   kunden_nummer: string;
   leistung: string;
@@ -125,8 +125,8 @@ export async function createLieferschein(form: LieferscheinFormData): Promise<st
     .insert({
       user_id: user.id,
       kunde_id: form.kunde_id ?? null,
-      assigned_to: form.assigned_to ?? null,
-      assigned_at: form.assigned_to ? new Date().toISOString() : null,
+      assigned_to: form.assigned_to ?? [],
+      assigned_at: (form.assigned_to ?? []).length > 0 ? new Date().toISOString() : null,
       lieferschein_datum: form.lieferschein_datum,
       kunden_nummer: emptyToNull(form.kunden_nummer),
       leistung: emptyToNull(form.leistung),
@@ -170,17 +170,19 @@ export async function updateLieferschein(id: string, form: LieferscheinFormData)
     .select("assigned_to")
     .eq("id", id)
     .maybeSingle();
-  const newAssigned = form.assigned_to ?? null;
-  const oldAssigned = existing?.assigned_to ?? null;
-  const assignmentChanged = newAssigned !== oldAssigned;
+  const newAssigned = [...(form.assigned_to ?? [])].sort();
+  const oldAssigned = [...(existing?.assigned_to ?? [])].sort();
+  const assignmentChanged =
+    newAssigned.length !== oldAssigned.length ||
+    newAssigned.some((v, i) => v !== oldAssigned[i]);
 
   const { error } = await supabase
     .from("lieferscheine")
     .update({
       kunde_id: form.kunde_id ?? null,
-      assigned_to: newAssigned,
+      assigned_to: form.assigned_to ?? [],
       ...(assignmentChanged
-        ? { assigned_at: newAssigned ? new Date().toISOString() : null }
+        ? { assigned_at: (form.assigned_to ?? []).length > 0 ? new Date().toISOString() : null }
         : {}),
       lieferschein_datum: form.lieferschein_datum,
       kunden_nummer: emptyToNull(form.kunden_nummer),

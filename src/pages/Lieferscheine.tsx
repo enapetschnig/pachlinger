@@ -70,7 +70,7 @@ export default function Lieferscheine() {
         const assigneeIds = new Set<string>();
         list.forEach((l) => {
           if (l.user_id) userIds.add(l.user_id);
-          if (l.assigned_to) assigneeIds.add(l.assigned_to);
+          (l.assigned_to ?? []).forEach((id) => assigneeIds.add(id));
         });
 
         if (adminCheck && userIds.size > 0) {
@@ -173,13 +173,15 @@ export default function Lieferscheine() {
                         <Badge variant={l.status === "entwurf" ? "outline" : l.status === "unterschrieben" ? "default" : "secondary"}>
                           {statusLabel(l.status)}
                         </Badge>
-                        {l.assigned_to && (
-                          l.assigned_to === currentUserId ? (
+                        {l.assigned_to && l.assigned_to.length > 0 && (
+                          currentUserId && l.assigned_to.includes(currentUserId) ? (
                             <Badge variant="secondary" className="bg-pachlinger-orange/15 text-pachlinger-anthracite border-pachlinger-orange/40">
                               Mir zugewiesen
                             </Badge>
-                          ) : isAdmin && assignees[l.assigned_to] ? (
-                            <span className="text-xs text-muted-foreground">→ {assignees[l.assigned_to]}</span>
+                          ) : isAdmin ? (
+                            <span className="text-xs text-muted-foreground">
+                              → {l.assigned_to.map((id) => assignees[id]).filter(Boolean).join(", ")}
+                            </span>
                           ) : null
                         )}
                         {isAdmin && l.user_id && creators[l.user_id] && (

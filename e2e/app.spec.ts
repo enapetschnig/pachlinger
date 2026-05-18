@@ -216,11 +216,10 @@ test("13a. Admin erstellt Lieferschein und weist ihn dem Mitarbeiter zu", async 
   await page.locator("#lieferschein_datum").click();
   await page.locator("textarea").first().fill("E2E Vorbereitung Büro");
 
-  // Zuweisen-Select erscheint für Admin
-  const assignSelect = page.locator("#assigned_to");
-  await expect(assignSelect).toBeVisible();
-  // PW Mitarbeiter aus der Liste auswählen (Name aus beforeAll)
-  await assignSelect.selectOption({ label: "PW Mitarbeiter" });
+  // Zuweisen-Checkboxen erscheinen für Admin
+  const mitarbeiterLabel = page.locator("label", { hasText: "PW Mitarbeiter" }).first();
+  await expect(mitarbeiterLabel).toBeVisible();
+  await mitarbeiterLabel.click();
 
   await page.getByRole("button", { name: /Lieferschein erstellen/ }).click();
   await page.waitForURL(/\/lieferscheine\/[a-f0-9-]+/, { timeout: 15_000 });

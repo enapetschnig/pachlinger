@@ -53,7 +53,7 @@ export default function LieferscheinForm({ mode }: Props) {
   } = useForm<LieferscheinFormData>({
     defaultValues: {
       kunde_id: null,
-      assigned_to: null,
+      assigned_to: [],
       lieferschein_datum: today,
       kunden_nummer: "",
       leistung: "",
@@ -115,7 +115,7 @@ export default function LieferscheinForm({ mode }: Props) {
           }
           reset({
             kunde_id: ls.kunde_id ?? null,
-            assigned_to: ls.assigned_to ?? null,
+            assigned_to: ls.assigned_to ?? [],
             lieferschein_datum: ls.lieferschein_datum,
             kunden_nummer: ls.kunden_nummer ?? "",
             leistung: ls.leistung ?? "",
@@ -372,33 +372,52 @@ export default function LieferscheinForm({ mode }: Props) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <Label htmlFor="assigned_to">
-                    Wer ist verantwortlich? (optional)
-                  </Label>
+                  <Label>Wer ist verantwortlich? (eine oder mehrere Personen)</Label>
                   <Controller
                     name="assigned_to"
                     control={control}
-                    render={({ field }) => (
-                      <select
-                        id="assigned_to"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={field.value ?? ""}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === "" ? null : e.target.value)
-                        }
-                      >
-                        <option value="">— niemandem zugewiesen —</option>
-                        {mitarbeiter.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.vorname} {m.nachname}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                    render={({ field }) => {
+                      const value: string[] = field.value ?? [];
+                      const toggle = (id: string) => {
+                        if (value.includes(id)) field.onChange(value.filter((v) => v !== id));
+                        else field.onChange([...value, id]);
+                      };
+                      return mitarbeiter.length === 0 ? (
+                        <p className="text-sm text-muted-foreground italic">
+                          Keine aktiven Mitarbeiter vorhanden.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {mitarbeiter.map((m) => {
+                            const checked = value.includes(m.id);
+                            return (
+                              <label
+                                key={m.id}
+                                className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                                  checked
+                                    ? "bg-primary/10 border-primary/40"
+                                    : "hover:bg-muted/50"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={checked}
+                                  onChange={() => toggle(m.id)}
+                                />
+                                <span className="text-sm">
+                                  {m.vorname} {m.nachname}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Die zugewiesene Person sieht den Lieferschein auf dem Dashboard und kann
-                    ihn bearbeiten, unterschreiben und versenden.
+                    Zugewiesene Personen sehen den Lieferschein auf ihrem Dashboard und
+                    können ihn bearbeiten, unterschreiben und versenden.
                   </p>
                 </div>
               </CardContent>

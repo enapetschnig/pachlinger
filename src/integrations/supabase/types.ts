@@ -156,7 +156,7 @@ export type Database = {
           angebot_datum: string | null
           angebot_nr: string | null
           assigned_at: string | null
-          assigned_to: string | null
+          assigned_to: string[]
           bauseits: string[]
           betreff: string | null
           created_at: string
@@ -186,7 +186,7 @@ export type Database = {
           angebot_datum?: string | null
           angebot_nr?: string | null
           assigned_at?: string | null
-          assigned_to?: string | null
+          assigned_to?: string[]
           bauseits?: string[]
           betreff?: string | null
           created_at?: string
@@ -216,7 +216,7 @@ export type Database = {
           angebot_datum?: string | null
           angebot_nr?: string | null
           assigned_at?: string | null
-          assigned_to?: string | null
+          assigned_to?: string[]
           bauseits?: string[]
           betreff?: string | null
           created_at?: string

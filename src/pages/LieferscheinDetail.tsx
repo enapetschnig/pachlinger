@@ -40,7 +40,7 @@ export default function LieferscheinDetail() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [isAssigned, setIsAssigned] = useState(false);
-  const [assigneeName, setAssigneeName] = useState<string | null>(null);
+  const [assigneeNames, setAssigneeNames] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [sendEmailOpen, setSendEmailOpen] = useState(false);
@@ -69,7 +69,7 @@ export default function LieferscheinDetail() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setIsOwner(data.user_id === user.id);
-        setIsAssigned(data.assigned_to === user.id);
+        setIsAssigned((data.assigned_to ?? []).includes(user.id));
         const { data: roleRow } = await supabase
           .from("user_roles")
           .select("role")
@@ -86,17 +86,21 @@ export default function LieferscheinDetail() {
             .maybeSingle();
           if (prof) setCreatorName(`${prof.vorname} ${prof.nachname}`.trim());
         }
-        if (data.assigned_to) {
-          const { data: assigneeProf } = await supabase
+        if ((data.assigned_to ?? []).length > 0) {
+          const { data: assigneeProfs } = await supabase
             .from("profiles")
-            .select("vorname, nachname")
-            .eq("id", data.assigned_to)
-            .maybeSingle();
-          if (assigneeProf) {
-            setAssigneeName(`${assigneeProf.vorname} ${assigneeProf.nachname}`.trim());
-          }
+            .select("id, vorname, nachname")
+            .in("id", data.assigned_to);
+          // Reihenfolge wie in assigned_to (damit es deterministisch ist)
+          const nameById = new Map<string, string>();
+          (assigneeProfs ?? []).forEach((p) => {
+            nameById.set(p.id, `${p.vorname} ${p.nachname}`.trim());
+          });
+          setAssigneeNames(
+            data.assigned_to.map((id: string) => nameById.get(id) ?? "…").filter(Boolean),
+          );
         } else {
-          setAssigneeName(null);
+          setAssigneeNames([]);
         }
       }
     } catch (e: any) {
@@ -215,9 +219,13 @@ export default function LieferscheinDetail() {
                 <Badge variant={ls.status === "entwurf" ? "outline" : ls.status === "unterschrieben" ? "default" : "secondary"}>
                   {statusLabel(ls.status)}
                 </Badge>
-                {ls.assigned_to && (
+                {ls.assigned_to && ls.assigned_to.length > 0 && (
                   <Badge variant="secondary" className="bg-pachlinger-orange/15 text-pachlinger-anthracite border-pachlinger-orange/40">
-                    {isAssigned ? "Dir zugewiesen" : `Zugewiesen an ${assigneeName ?? "…"}`}
+                    {isAssigned
+                      ? assigneeNames.length > 1
+                        ? `Dir + ${assigneeNames.length - 1} weiteren zugewiesen`
+                        : "Dir zugewiesen"
+                      : `Zugewiesen an ${assigneeNames.join(", ") || "…"}`}
                   </Badge>
                 )}
               </div>

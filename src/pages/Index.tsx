@@ -72,11 +72,11 @@ export default function Index() {
       setPendingCount(0);
     }
 
-    // Alle: Anzahl der zugewiesenen Entwürfe
+    // Alle: Anzahl der zugewiesenen Entwürfe (array contains userId)
     const { count: assignedDrafts } = await supabase
       .from("lieferscheine")
       .select("id", { count: "exact", head: true })
-      .eq("assigned_to", userId)
+      .contains("assigned_to", [userId])
       .eq("status", "entwurf");
     setAssignedCount(assignedDrafts ?? 0);
 

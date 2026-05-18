@@ -28,7 +28,7 @@ export async function countAssignedDrafts(userId: string): Promise<number> {
   const { count, error } = await supabase
     .from("lieferscheine")
     .select("id", { count: "exact", head: true })
-    .eq("assigned_to", userId)
+    .contains("assigned_to", [userId])
     .eq("status", "entwurf");
   if (error) throw error;
   return count ?? 0;
