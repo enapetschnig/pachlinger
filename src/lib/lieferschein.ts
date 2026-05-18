@@ -239,25 +239,35 @@ export async function getSignatureUrl(path: string): Promise<string | null> {
 }
 
 /**
+ * Lädt den vollen Lieferschein und gibt das gerenderte PDF als Blob zurück.
+ * Wird sowohl vom Download als auch vom Sign-Dialog (Vorschau) genutzt.
+ */
+export async function renderLieferscheinPdfBlob(
+  id: string,
+): Promise<{ blob: Blob; nummer: string }> {
+  const ls = await getLieferschein(id);
+  if (!ls) throw new Error("Lieferschein nicht gefunden");
+  const signatureUrl = ls.unterschrift_image_url
+    ? await getSignatureUrl(ls.unterschrift_image_url)
+    : null;
+  // Cast: LieferscheinPdf rendert ein <Document>, aber TypeScript erkennt
+  // den FunctionComponent-Typ nicht als DocumentProps.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const element = React.createElement(LieferscheinPdf, { ls, signatureUrl }) as any;
+  const blob = await pdf(element).toBlob();
+  return { blob, nummer: ls.nummer };
+}
+
+/**
  * Lädt den vollen Lieferschein, rendert das PDF und triggert einen Download.
  * Wirft Fehler bei IO-Problemen — Aufrufer soll diese mit Toast abfangen.
  */
 export async function downloadLieferscheinPdf(id: string): Promise<void> {
-  const ls = await getLieferschein(id);
-  if (!ls) throw new Error("Lieferschein nicht gefunden");
-
-  const signatureUrl = ls.unterschrift_image_url
-    ? await getSignatureUrl(ls.unterschrift_image_url)
-    : null;
-
-  const blob = await pdf(
-    React.createElement(LieferscheinPdf, { ls, signatureUrl }),
-  ).toBlob();
-
+  const { blob, nummer } = await renderLieferscheinPdfBlob(id);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${ls.nummer.replace("/", "_")}.pdf`;
+  a.download = `${nummer.replace("/", "_")}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
