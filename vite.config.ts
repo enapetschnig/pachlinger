@@ -30,9 +30,14 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        // .mjs für pdfjs-dist Worker (PDF-Vorschau im Sign-Dialog)
+        // .mjs für pdfjs-dist Worker (PDF-Text-Extraktion im Kunden-Import)
         globPatterns: ["**/*.{js,mjs,css,html,ico,png,svg,woff,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Neue SW-Version sofort aktivieren statt auf Tab-Close zu warten.
+        // Auf Mobile (iOS-PWA) reduziert das die "alte Version klebt fest"-Erfahrung.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
     }),
   ].filter(Boolean),
