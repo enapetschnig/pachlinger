@@ -22,10 +22,9 @@ export default function Onboard() {
   const [vorname, setVorname] = useState("");
   const [nachname, setNachname] = useState("");
   const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [step, setStep] = useState<"form" | "otp">("form");
-  const [requesting, setRequesting] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordRepeat, setPasswordRepeat] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [resolvingToken, setResolvingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
@@ -66,7 +65,7 @@ export default function Onboard() {
     }
   }, [params]);
 
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalized = normalizeAtPhone(phone);
     if (!normalized) {
@@ -85,62 +84,64 @@ export default function Onboard() {
       });
       return;
     }
-    setRequesting(true);
+    if (password.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Passwort zu kurz",
+        description: "Mindestens 6 Zeichen.",
+      });
+      return;
+    }
+    if (password !== passwordRepeat) {
+      toast({
+        variant: "destructive",
+        title: "Passwörter stimmen nicht überein",
+        description: "Bitte beide Passwörter exakt gleich eingeben.",
+      });
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signUp({
         phone: normalized,
+        password,
         options: {
-          channel: "sms",
           data: { vorname: vorname.trim(), nachname: nachname.trim() },
         },
       });
       if (error) throw error;
       toast({
-        title: "Code gesendet",
-        description: "Du bekommst gleich eine SMS mit deinem Code.",
+        title: "Willkommen!",
+        description: "Du bist jetzt angemeldet.",
       });
-      setStep("otp");
-    } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: err.message ?? "Code-Versand fehlgeschlagen.",
-      });
-    } finally {
-      setRequesting(false);
-    }
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const normalized = normalizeAtPhone(phone);
-    if (!normalized) return;
-    if (code.trim().length < 4) {
-      toast({
-        variant: "destructive",
-        title: "Code fehlt",
-        description: "Bitte gib den 6-stelligen Code aus der SMS ein.",
-      });
-      return;
-    }
-    setVerifying(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone: normalized,
-        token: code.trim(),
-        type: "sms",
-      });
-      if (error) throw error;
-      toast({ title: "Erfolgreich angemeldet" });
       navigate("/");
     } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: err.message ?? "Code ungültig oder abgelaufen.",
-      });
+      const msg = err?.message ?? "Registrierung fehlgeschlagen.";
+      // User existiert bereits → versuch Login
+      if (/already|registered|exists/i.test(msg)) {
+        try {
+          const { error: signInErr } = await supabase.auth.signInWithPassword({
+            phone: normalized,
+            password,
+          });
+          if (signInErr) throw signInErr;
+          toast({ title: "Erfolgreich angemeldet" });
+          navigate("/");
+          return;
+        } catch (e2: any) {
+          toast({
+            variant: "destructive",
+            title: "Anmeldung fehlgeschlagen",
+            description:
+              "Diese Telefonnummer ist schon registriert. Falls du dein Passwort vergessen hast, melde dich beim Büro.",
+          });
+          return;
+        }
+      }
+      toast({ variant: "destructive", title: "Fehler", description: msg });
     } finally {
-      setVerifying(false);
+      setSubmitting(false);
     }
   };
 
@@ -166,8 +167,8 @@ export default function Onboard() {
                 Bitte beim Pachlinger-Büro melden — du brauchst eine neue Einladung.
               </p>
             </div>
-          ) : step === "form" ? (
-            <form onSubmit={handleRequestOtp} className="space-y-4">
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="ob-vorname">Vorname</Label>
@@ -203,56 +204,43 @@ export default function Onboard() {
                   onChange={(e) => setPhone(e.target.value)}
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Du bekommst gleich eine SMS mit deinem Bestätigungscode.
-                </p>
               </div>
 
-              <Button type="submit" className="w-full" disabled={requesting}>
-                {requesting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
-                Code per SMS anfordern
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerify} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="ob-code">SMS-Code</Label>
+                <Label htmlFor="ob-password">Passwort wählen</Label>
                 <Input
-                  id="ob-code"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={8}
-                  placeholder="z.B. 123456"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  autoFocus
+                  id="ob-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  placeholder="mindestens 6 Zeichen"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Der Code wurde an {phone} gesendet.
-                </p>
               </div>
 
-              <Button type="submit" className="w-full" disabled={verifying}>
-                {verifying ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
-                Anmelden
-              </Button>
+              <div className="space-y-2">
+                <Label htmlFor="ob-password-repeat">Passwort wiederholen</Label>
+                <Input
+                  id="ob-password-repeat"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  value={passwordRepeat}
+                  onChange={(e) => setPasswordRepeat(e.target.value)}
+                  required
+                />
+              </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => {
-                  setStep("form");
-                  setCode("");
-                }}
-              >
-                Zurück
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Registrieren & anmelden
               </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Mit der Registrierung bist du sofort angemeldet. Merke dir Telefon­nummer
+                und Passwort — damit kannst du dich später jederzeit wieder anmelden.
+              </p>
             </form>
           )}
         </CardContent>
