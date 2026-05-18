@@ -14,6 +14,7 @@ import Lieferscheine from "./pages/Lieferscheine";
 import LieferscheinForm from "./pages/LieferscheinForm";
 import LieferscheinDetail from "./pages/LieferscheinDetail";
 import Kunden from "./pages/Kunden";
+import Onboard from "./pages/Onboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/onboard" element={<Onboard />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/kunden" element={<Kunden />} />
         <Route path="/lieferscheine" element={<Lieferscheine />} />

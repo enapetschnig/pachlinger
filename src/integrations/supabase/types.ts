@@ -240,6 +240,33 @@ export type Database = {
           },
         ]
       }
+      phone_invites: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          nachname: string | null
+          phone: string
+          used_at: string | null
+          vorname: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          nachname?: string | null
+          phone: string
+          used_at?: string | null
+          vorname?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          nachname?: string | null
+          phone?: string
+          used_at?: string | null
+          vorname?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

@@ -12,7 +12,6 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -36,44 +35,6 @@ export default function Auth() {
     }
 
     toast({ title: "Erfolgreich angemeldet" });
-    navigate("/");
-    setLoading(false);
-  };
-
-  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const vorname = formData.get("vorname") as string;
-    const nachname = formData.get("nachname") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: { vorname, nachname },
-      },
-    });
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Fehler bei der Registrierung",
-        description: error.message,
-      });
-      setLoading(false);
-      return;
-    }
-
-    toast({
-      title: "Registrierung erfolgreich!",
-      description: "Sie werden nach Freischaltung durch den Administrator benachrichtigt.",
-    });
-
     navigate("/");
     setLoading(false);
   };
@@ -141,40 +102,8 @@ export default function Auth() {
               </form>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={isLogin ? "default" : "outline"}
-                  className="flex-1"
-                  onClick={() => setIsLogin(true)}
-                >
-                  Anmelden
-                </Button>
-                <Button
-                  type="button"
-                  variant={!isLogin ? "default" : "outline"}
-                  className="flex-1"
-                  onClick={() => setIsLogin(false)}
-                >
-                  Registrieren
-                </Button>
-              </div>
-
-              <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-4">
-                {!isLogin && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="vorname">Vorname</Label>
-                      <Input id="vorname" name="vorname" type="text" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="nachname">Nachname</Label>
-                      <Input id="nachname" name="nachname" type="text" required />
-                    </div>
-                  </div>
-                )}
-
+            <div className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">E-Mail</Label>
                   <Input
@@ -192,20 +121,22 @@ export default function Auth() {
                   <Input id="password" name="password" type="password" required minLength={6} />
                 </div>
 
-                {isLogin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswordReset(true)}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Passwort vergessen?
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordReset(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Passwort vergessen?
+                </button>
 
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Lädt..." : isLogin ? "Anmelden" : "Registrieren"}
+                  {loading ? "Lädt..." : "Anmelden"}
                 </Button>
               </form>
+
+              <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+                Mitarbeiter erhalten ihre Einladung per SMS und müssen sich nicht selbst registrieren.
+              </p>
             </div>
           )}
         </CardContent>
