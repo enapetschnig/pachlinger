@@ -30,7 +30,8 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        // .mjs für pdfjs-dist Worker (PDF-Vorschau im Sign-Dialog)
+        globPatterns: ["**/*.{js,mjs,css,html,ico,png,svg,woff,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
