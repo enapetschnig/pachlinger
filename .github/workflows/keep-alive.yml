@@ -1,0 +1,36 @@
+name: Supabase Keep-Alive
+
+# Verhindert, dass das Supabase-Free-Projekt nach 7 Tagen Inaktivität pausiert.
+# Macht einen echten externen HTTP-Request an die REST-API → zählt als DB-Aktivität
+# und setzt den 7-Tage-Inaktivitäts-Timer zurück.
+#
+# Hinweis: Der verwendete Key ist der PUBLISHABLE (anon) Key – derselbe, der ohnehin
+# im ausgelieferten Frontend-Bundle steckt. Er ist öffentlich und ungefährlich;
+# die Daten sind durch Row-Level-Security geschützt. Daher direkt eingetragen,
+# damit der Keep-Alive ohne weitere Einrichtung (keine Repo-Secrets nötig) läuft.
+
+on:
+  schedule:
+    # Täglich um 06:17 UTC. Täglich (statt wöchentlich) als Sicherheitspuffer,
+    # falls GitHub einzelne Cron-Läufe unter Last überspringt. Krumme Minute,
+    # weil GitHub Jobs zur vollen Stunde häufiger verzögert/verwirft.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {} # erlaubt manuelles Auslösen über den Actions-Tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: REST-API anpingen (Supabase wach halten)
+        run: |
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "https://jyjhtqnkirsxyzsnwlmx.supabase.co/rest/v1/heartbeat?id=eq.1&select=id" \
+            -H "apikey: sb_publishable_srcKETM2AH9XjhzLLz7JGg_dfOcJJJ6" \
+            -H "Authorization: Bearer sb_publishable_srcKETM2AH9XjhzLLz7JGg_dfOcJJJ6")
+          echo "Supabase REST-API antwortete mit HTTP $STATUS"
+          # 2xx und 4xx zählen beide als Aktivität (Request erreicht DB + Gateway).
+          # Nur ein 5xx / Verbindungsfehler ist ein echtes Problem.
+          if [ "$STATUS" -ge 500 ] || [ "$STATUS" -eq 000 ]; then
+            echo "::error::Keep-Alive-Ping fehlgeschlagen (HTTP $STATUS)"
+            exit 1
+          fi
