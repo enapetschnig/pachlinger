@@ -67,6 +67,8 @@ export default function LieferscheinForm({ mode }: Props) {
       betreff: "",
       angebot_nr: "",
       angebot_datum: "",
+      bestellnummer: "",
+      lieferant: "",
       bauseits: [],
       positionen: [{ menge: 1, einheit: "Stk.", bezeichnung: "", rabatt_eur: null }],
     },
@@ -129,6 +131,8 @@ export default function LieferscheinForm({ mode }: Props) {
             betreff: ls.betreff ?? "",
             angebot_nr: ls.angebot_nr ?? "",
             angebot_datum: ls.angebot_datum ?? "",
+            bestellnummer: ls.bestellnummer ?? "",
+            lieferant: ls.lieferant ?? "",
             bauseits: ls.bauseits.map((value) => ({ value })),
             positionen:
               ls.positionen.length > 0
@@ -467,6 +471,33 @@ export default function LieferscheinForm({ mode }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="angebot_datum">Angebot vom</Label>
                   <Input id="angebot_datum" type="date" {...register("angebot_datum")} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bestellung & Lieferant */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Bestellung & Lieferant</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bestellnummer">Bestellnummer</Label>
+                  <Input
+                    id="bestellnummer"
+                    {...register("bestellnummer")}
+                    placeholder="z.B. 4500012345"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lieferant">Lieferant</Label>
+                  <Input
+                    id="lieferant"
+                    {...register("lieferant")}
+                    placeholder="z.B. Firma XYZ GmbH"
+                  />
                 </div>
               </div>
             </CardContent>

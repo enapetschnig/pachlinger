@@ -158,6 +158,7 @@ export type Database = {
           assigned_at: string | null
           assigned_to: string[]
           bauseits: string[]
+          bestellnummer: string | null
           betreff: string | null
           created_at: string
           empfaenger_email: string | null
@@ -173,6 +174,7 @@ export type Database = {
           kunden_nummer: string | null
           leistung: string | null
           lfd_nr: number
+          lieferant: string | null
           lieferschein_datum: string
           nummer: string | null
           status: Database["public"]["Enums"]["lieferschein_status"]
@@ -188,6 +190,7 @@ export type Database = {
           assigned_at?: string | null
           assigned_to?: string[]
           bauseits?: string[]
+          bestellnummer?: string | null
           betreff?: string | null
           created_at?: string
           empfaenger_email?: string | null
@@ -203,6 +206,7 @@ export type Database = {
           kunden_nummer?: string | null
           leistung?: string | null
           lfd_nr?: number
+          lieferant?: string | null
           lieferschein_datum?: string
           nummer?: string | null
           status?: Database["public"]["Enums"]["lieferschein_status"]
@@ -218,6 +222,7 @@ export type Database = {
           assigned_at?: string | null
           assigned_to?: string[]
           bauseits?: string[]
+          bestellnummer?: string | null
           betreff?: string | null
           created_at?: string
           empfaenger_email?: string | null
@@ -233,6 +238,7 @@ export type Database = {
           kunden_nummer?: string | null
           leistung?: string | null
           lfd_nr?: number
+          lieferant?: string | null
           lieferschein_datum?: string
           nummer?: string | null
           status?: Database["public"]["Enums"]["lieferschein_status"]

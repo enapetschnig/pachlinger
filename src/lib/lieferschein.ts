@@ -37,6 +37,8 @@ export interface Lieferschein {
   betreff: string | null;
   angebot_nr: string | null;
   angebot_datum: string | null;
+  bestellnummer: string | null;
+  lieferant: string | null;
   bauseits: string[];
   unterschrift_ort: string | null;
   unterschrift_datum: string | null;
@@ -66,6 +68,8 @@ export interface LieferscheinFormData {
   betreff: string;
   angebot_nr: string;
   angebot_datum: string;
+  bestellnummer: string;
+  lieferant: string;
   bauseits: { value: string }[];
   positionen: {
     menge: number;
@@ -140,6 +144,8 @@ export async function createLieferschein(form: LieferscheinFormData): Promise<st
       betreff: emptyToNull(form.betreff),
       angebot_nr: emptyToNull(form.angebot_nr),
       angebot_datum: emptyToNull(form.angebot_datum),
+      bestellnummer: emptyToNull(form.bestellnummer),
+      lieferant: emptyToNull(form.lieferant),
       bauseits: form.bauseits.map((b) => b.value).filter((v) => v.trim() !== ""),
     })
     .select("id")
@@ -197,6 +203,8 @@ export async function updateLieferschein(id: string, form: LieferscheinFormData)
       betreff: emptyToNull(form.betreff),
       angebot_nr: emptyToNull(form.angebot_nr),
       angebot_datum: emptyToNull(form.angebot_datum),
+      bestellnummer: emptyToNull(form.bestellnummer),
+      lieferant: emptyToNull(form.lieferant),
       bauseits: form.bauseits.map((b) => b.value).filter((v) => v.trim() !== ""),
     })
     .eq("id", id);

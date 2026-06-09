@@ -328,6 +328,26 @@ export function LieferscheinPdf({ ls, signatureUrl, logoSrc = "/pachlinger-logo.
                   <Text>{ls.empfaenger_uid ?? ""}</Text>
                 </View>
               </View>
+              {ls.bestellnummer ? (
+                <View style={styles.metaRow}>
+                  <View style={styles.metaCellLabel}>
+                    <Text>Bestellnummer:</Text>
+                  </View>
+                  <View style={styles.metaCellValue}>
+                    <Text>{ls.bestellnummer}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {ls.lieferant ? (
+                <View style={styles.metaRow}>
+                  <View style={styles.metaCellLabel}>
+                    <Text>Lieferant:</Text>
+                  </View>
+                  <View style={styles.metaCellValue}>
+                    <Text>{ls.lieferant}</Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
             <Text style={styles.pageOf}>Seite 1 von 1</Text>
           </View>

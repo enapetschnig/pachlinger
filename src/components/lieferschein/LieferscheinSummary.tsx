@@ -95,6 +95,21 @@ export function LieferscheinSummary({ lieferscheinId }: Props) {
         </div>
       )}
 
+      {/* Bestellung & Lieferant */}
+      {(ls.bestellnummer || ls.lieferant) && (
+        <div>
+          <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            Bestellung &amp; Lieferant
+          </div>
+          {ls.lieferant && <div className="font-semibold">{ls.lieferant}</div>}
+          {ls.bestellnummer && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Bestellnummer {ls.bestellnummer}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Bauseits */}
       {ls.bauseits.length > 0 && (
         <div>
